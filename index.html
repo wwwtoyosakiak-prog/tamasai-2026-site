@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>多摩祭2026 動画コンテスト</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <p id="notice" class="notice" hidden></p>
+
+  <!-- スタート画面 -->
+  <section id="screen-start" class="screen" hidden>
+    <p class="eyebrow">多摩祭2026</p>
+    <h1>動画コンテスト</h1>
+    <p class="count" id="start-count"></p>
+    <button id="btn-start" class="btn btn-primary btn-large" type="button">スタート</button>
+  </section>
+
+  <!-- 再生画面 -->
+  <section id="screen-play" class="screen" hidden>
+    <p class="progress" id="play-progress"></p>
+    <div class="player" id="player"></div>
+    <button id="btn-to-survey" class="btn btn-primary btn-large" type="button">アンケートに答える</button>
+  </section>
+
+  <!-- アンケート画面 -->
+  <section id="screen-survey" class="screen" hidden>
+    <p class="progress" id="survey-progress"></p>
+    <h2>この動画はどうでしたか？</h2>
+    <p class="hint">それぞれ、あてはまる人数を選んでください。</p>
+    <form id="survey-form" novalidate>
+      <label class="row">
+        <span class="row-label">面白かった</span>
+        <select id="sel-funny" aria-label="面白かった人数"></select>
+      </label>
+      <label class="row">
+        <span class="row-label">面白くなかった</span>
+        <select id="sel-notfunny" aria-label="面白くなかった人数"></select>
+      </label>
+      <p id="survey-error" class="error" role="alert" hidden></p>
+      <button id="btn-submit" class="btn btn-primary btn-large" type="submit">送信</button>
+    </form>
+  </section>
+
+  <!-- 終了画面 -->
+  <section id="screen-end" class="screen" hidden>
+    <h2>ご覧いただき<br>ありがとうございました</h2>
+    <button id="btn-restart" class="btn btn-primary btn-large" type="button">スタートに戻る</button>
+  </section>
+
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
