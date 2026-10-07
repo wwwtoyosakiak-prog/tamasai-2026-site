@@ -25,12 +25,43 @@ function setup() {
     answers.setFrozenRows(1);
   }
 
+  // 集計シート：「面白かった」の人数が多い順に並べ、順位と棒を付ける
   var summary = ss.getSheetByName("集計") || ss.insertSheet("集計");
   summary.clear();
-  summary.getRange("A1").setFormula(
-    '=IFERROR(QUERY(回答!A2:F, "select C, sum(D), sum(E), count(C) group by C ' +
-    "label C '作品名', sum(D) '面白かった(人)', sum(E) '面白くなかった(人)', count(C) '回答数'\", 0), \"まだ回答がありません\")"
+  summary.clearConditionalFormatRules();
+
+  summary.getRange("A1").setValue("順位");
+  // B〜E列：作品ごとの合計。面白かった(人)が多い順、同数なら面白くなかった(人)が少ない順
+  summary.getRange("B1").setFormula(
+    '=IFERROR(QUERY(回答!A2:F, "select C, sum(D), sum(E), count(C) where C is not null ' +
+    "group by C order by sum(D) desc, sum(E) asc " +
+    "label C '作品名', sum(D) '面白かった(人)', sum(E) '面白くなかった(人)', count(C) '回答数'\", 0), " +
+    '"まだ回答がありません")'
   );
+  // 順位：面白かった(人)が多いほど上位。同数なら同じ順位
+  summary.getRange("A2").setFormula('=ARRAYFORMULA(IF(C2:C="","",1+COUNTIF(C2:C,">"&C2:C)))');
+  // 棒：面白かった(人)の数だけ ■ を並べる
+  summary.getRange("F1").setValue("面白かった（棒）");
+  summary.getRange("F2").setFormula('=ARRAYFORMULA(IF(C2:C="","",REPT("■",C2:C)))');
+
+  summary.getRange("A1:F1").setFontWeight("bold").setBackground("#e8eefc");
+  summary.setFrozenRows(1);
+  summary.getRange("A2:A").setHorizontalAlignment("center");
+  summary.getRange("C2:C").setFontWeight("bold").setFontSize(14);
+  summary.getRange("F2:F").setFontColor("#2f6fed");
+  summary.setColumnWidth(1, 60);
+  summary.setColumnWidth(2, 260);
+  summary.setColumnWidths(3, 3, 120);
+  summary.setColumnWidth(6, 360);
+  // 1位の行を目立たせる
+  summary.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied("=$A2=1")
+      .setBackground("#fff2cc")
+      .setBold(true)
+      .setRanges([summary.getRange("A2:F200")])
+      .build()
+  ]);
 }
 
 function doPost(e) {
