@@ -36,39 +36,59 @@ function setup() {
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
-    var funny = toCount_(data.funny);
-    var notFunny = toCount_(data.notFunny);
-    if (funny === null || notFunny === null || funny + notFunny < 1) {
+    // まとめて送られた場合は data.records、1件だけの場合は data そのもの
+    var records = Array.isArray(data.records) ? data.records : [data];
+
+    var valid = [];
+    records.forEach(function (r) {
+      var funny = toCount_(r.funny);
+      var notFunny = toCount_(r.notFunny);
+      if (funny === null || notFunny === null || funny + notFunny < 1) { return; }
+      valid.push({
+        id: String(r.submissionId || "").slice(0, 100),
+        workId: String(r.workId || "").slice(0, 100),
+        title: String(r.title || "").slice(0, 200),
+        funny: funny,
+        notFunny: notFunny,
+        sentAt: String(r.sentAt || "").slice(0, 40)
+      });
+    });
+    if (valid.length === 0) {
       return json_({ ok: false, error: "invalid count" });
     }
-    var submissionId = String(data.submissionId || "").slice(0, 100);
 
     var lock = LockService.getScriptLock();
     lock.waitLock(20000);
     try {
-      var ss = getSpreadsheet_();
-      var sheet = ss.getSheetByName("回答");
+      var sheet = getSpreadsheet_().getSheetByName("回答");
       if (!sheet) {
         return json_({ ok: false, error: "run setup() first" });
       }
       if (!sheet.getRange("G1").getValue()) { sheet.getRange("G1").setValue("送信ID"); }
 
-      // 再送で同じ回答が二重に入らないようにする
-      if (submissionId) {
-        var found = sheet.getRange("G:G").createTextFinder(submissionId).matchEntireCell(true).findNext();
-        if (found) { return json_({ ok: true, duplicate: true }); }
+      // 再送で同じ回答が二重に入らないよう、記録済みの送信IDを1回でまとめて読む
+      var seen = {};
+      var last = sheet.getLastRow();
+      if (last >= 2) {
+        sheet.getRange(2, 7, last - 1, 1).getValues().forEach(function (row) {
+          if (row[0]) { seen[String(row[0])] = true; }
+        });
       }
 
-      sheet.appendRow([
-        new Date(),
-        String(data.workId || "").slice(0, 100),
-        String(data.title || "").slice(0, 200),
-        funny,
-        notFunny,
-        String(data.sentAt || "").slice(0, 40),
-        submissionId
-      ]);
-      return json_({ ok: true });
+      var now = new Date();
+      var rows = [];
+      var duplicates = 0;
+      valid.forEach(function (r) {
+        if (r.id && seen[r.id]) { duplicates++; return; }
+        if (r.id) { seen[r.id] = true; }
+        rows.push([now, r.workId, r.title, r.funny, r.notFunny, r.sentAt, r.id]);
+      });
+
+      // 何件でも、1回の書き込みで追加する
+      if (rows.length > 0) {
+        sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 7).setValues(rows);
+      }
+      return json_({ ok: true, added: rows.length, duplicates: duplicates });
     } finally {
       lock.releaseLock();
     }

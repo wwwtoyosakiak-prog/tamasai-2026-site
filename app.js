@@ -151,15 +151,16 @@
   function flush() {
     if (flushing || !ENDPOINT || queueMem.length === 0) { return; }
     flushing = true;
-    var rec = queueMem[0];
+    // たまっている回答を、まとめて1回で送る（1回あたりの待ち時間が長いため）
+    var batch = queueMem.slice(0, 20);
     var ctrl = new AbortController();
-    var timer = setTimeout(function () { ctrl.abort(); }, 20000);
+    var timer = setTimeout(function () { ctrl.abort(); }, 25000);
 
     fetch(ENDPOINT, {
       method: "POST",
       // text/plain にすると CORS のプリフライトが発生しない
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(rec),
+      body: JSON.stringify({ records: batch }),
       signal: ctrl.signal
     })
       .then(function (res) {
@@ -170,7 +171,7 @@
         clearTimeout(timer);
         // 成功、または二度と通らない回答（人数が不正）は、キューから外す
         if (json && (json.ok === true || json.error === "invalid count")) {
-          queueMem.shift();
+          queueMem.splice(0, batch.length);
           persistQueue();
           updateQueueStatus();
           retryDelay = 3000;
