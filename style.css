@@ -194,3 +194,63 @@ select {
   #survey-form .row { margin: 0; max-width: none; }
   #survey-form .error, #survey-form .btn { grid-column: 1 / -1; justify-self: center; margin: 0; }
 }
+
+/* ---------- ワークショップ アンケート（スタッフが聞き取って押す） ---------- */
+.ws-title { font-size: clamp(22px, 5.5vw, 34px); }
+.ws-screen { text-align: left; }
+.ws-screen .eyebrow, .ws-screen .ws-title, .ws-screen > .hint { text-align: center; }
+.q { border: 0; padding: 0; margin: 0 0 22px; min-width: 0; }
+.q legend { font-weight: 700; font-size: 18px; line-height: 1.5; padding: 0; margin-bottom: 10px; }
+.choices { display: flex; flex-wrap: wrap; gap: 10px; }
+.choice {
+  appearance: none;
+  flex: 1 1 120px;
+  min-height: 64px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  background: #fff;
+  border: 3px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  touch-action: manipulation;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.choice:focus-visible { outline: 3px solid #ffb703; outline-offset: 2px; }
+.choice[aria-pressed="true"] { background: var(--primary); border-color: var(--primary-dark); color: #fff; }
+.faces .choice { flex-direction: column; min-height: 96px; gap: 2px; }
+.faces .face { font-size: 40px; line-height: 1.1; }
+textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  resize: vertical;
+}
+.ws-summary { min-height: 1.6em; margin: 0 0 8px; color: var(--muted); font-weight: 700; text-align: center; }
+#ws-form .btn-large { display: block; margin: 0 auto; }
+.ws-toast {
+  background: #e6f6ea; border: 1px solid #9fd5ab; color: #1b5e2f;
+  border-radius: 10px; padding: 10px 14px; margin: 14px 0 0; font-weight: 700; text-align: center;
+}
+.ws-foot { margin-top: 20px; text-align: center; }
+.ws-foot .count { margin-bottom: 8px; }
+.ws-foot p { margin: 12px 0 0; }
+.btn-sub { background: #eef1f8; color: var(--text); border: 1px solid var(--border); font-size: 16px; }
+.btn-sub:disabled { color: #9aa3b5; cursor: default; }
+@media (min-width: 768px) {
+  .q legend { font-size: 22px; }
+  .choice { font-size: 24px; min-height: 76px; }
+  .faces .choice { min-height: 120px; }
+  .faces .face { font-size: 52px; }
+}
+@media (orientation: landscape) and (max-height: 600px) {
+  .faces .choice { flex-direction: row; min-height: 64px; }
+  .faces .face { font-size: 32px; }
+  .q { margin-bottom: 14px; }
+}
+.start-link { margin: 20px 0 0; }
