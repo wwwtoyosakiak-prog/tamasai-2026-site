@@ -76,12 +76,21 @@ h2 { margin: 0 0 8px; font-size: clamp(20px, 5vw, 28px); line-height: 1.4; }
 
 .player {
   position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
   background: #0b0d12;
   border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 20px;
+  margin: 0 auto 20px;
+}
+/* 縦動画（コンテストの標準）：画面の高さに収まる幅にする */
+.player.portrait {
+  aspect-ratio: 9 / 16;
+  width: min(100%, calc(68vh * 9 / 16));
+  width: min(100%, calc(68dvh * 9 / 16));
+}
+/* 横動画 */
+.player.landscape {
+  aspect-ratio: 16 / 9;
+  width: 100%;
 }
 .player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .player .placeholder {

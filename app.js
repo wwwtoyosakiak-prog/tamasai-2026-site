@@ -56,6 +56,8 @@
   function renderPlayer(work) {
     var box = $("player");
     box.innerHTML = "";
+    // 向き：works.json の "orientation"（"portrait"=縦 / "landscape"=横）。省略時は縦
+    box.className = "player " + (work.orientation === "landscape" ? "landscape" : "portrait");
     if (/^DUMMY/.test(work.driveId)) {
       // 動作確認用のダミー表示（本番では本物の driveId に差し替える）
       var ph = document.createElement("div");
