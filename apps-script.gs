@@ -12,6 +12,10 @@ var MAX_PEOPLE = 10;
 // スプレッドシートの「拡張機能 → Apps Script」から作った場合は、空のままで構いません。
 var SHEET_ID = "";
 
+// 動画を入れる共有フォルダのID（URLの /folders/ のあとの文字列）。
+// サイトはこのフォルダの動画を一覧にして読み込みます。
+var FOLDER_ID = "";
+
 function getSpreadsheet_() {
   return SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
 }
@@ -62,6 +66,28 @@ function setup() {
       .setRanges([summary.getRange("A2:F200")])
       .build()
   ]);
+}
+
+// 動画フォルダの中身を一覧で返す（サイトのスタート時に読み込まれる）
+function doGet(e) {
+  try {
+    var files = DriveApp.getFolderById(FOLDER_ID).getFiles(); // ゴミ箱の中のファイルは含まれない
+    var list = [];
+    while (files.hasNext()) {
+      var f = files.next();
+      if (String(f.getMimeType()).indexOf("video/") !== 0) { continue; } // 動画以外は無視
+      list.push({
+        id: f.getId(),
+        title: f.getName().replace(/\.[^.]+$/, ""),
+        driveId: f.getId(),
+        orientation: "portrait"
+      });
+    }
+    list.sort(function (a, b) { return a.title < b.title ? -1 : a.title > b.title ? 1 : 0; });
+    return json_({ ok: true, works: list });
+  } catch (err) {
+    return json_({ ok: false, error: String(err) });
+  }
 }
 
 function doPost(e) {

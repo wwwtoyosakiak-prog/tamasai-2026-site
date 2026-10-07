@@ -237,10 +237,24 @@
     fillSelect($("sel-funny"));
     fillSelect($("sel-notfunny"));
 
-    $("btn-start").addEventListener("click", startRound);
+    $("btn-start").addEventListener("click", function () {
+      var btn = $("btn-start");
+      btn.disabled = true;
+      btn.textContent = "読み込み中…";
+      // 動画の追加・削除を反映するため、スタート時に最新の一覧を読み直す
+      loadWorks().then(function () {
+        btn.disabled = false;
+        btn.textContent = "スタート";
+        if (works.length === 0) { return; }
+        startRound();
+      });
+    });
     $("btn-to-survey").addEventListener("click", goSurvey);
     $("survey-form").addEventListener("submit", submitSurvey);
-    $("btn-restart").addEventListener("click", function () { show("start"); });
+    $("btn-restart").addEventListener("click", function () {
+      show("start");
+      loadWorks();
+    });
 
     // 前回送れなかった回答があれば、続きを送る
     queueMem = loadQueue();
@@ -253,24 +267,63 @@
       notice("記録先が未設定です。回答はこの端末にだけ保存されます（動作確認用）。");
     }
 
-    fetch("works.json?t=" + Date.now(), { cache: "no-store" })
+    loadWorks().then(function () {
+      if (works.length === 0) {
+        notice("動画が登録されていません。");
+        return;
+      }
+      show("start");
+    });
+  }
+
+  // ---------- 動画一覧の読み込み ----------
+  // 1) ドライブのフォルダ（Apps Script経由）を読む。動画を追加・削除すると、ここに反映される
+  // 2) 読めなければ works.json を使う
+  function cleanList(list) {
+    return (Array.isArray(list) ? list : []).filter(function (w) {
+      return w && w.id && w.title && w.driveId;
+    });
+  }
+
+  function fetchFolderList() {
+    if (!ENDPOINT) { return Promise.reject(new Error("no endpoint")); }
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 10000);
+    return fetch(ENDPOINT + "?t=" + Date.now(), { cache: "no-store", signal: ctrl.signal })
       .then(function (r) {
         if (!r.ok) { throw new Error("HTTP " + r.status); }
         return r.json();
       })
+      .then(function (json) {
+        clearTimeout(timer);
+        if (!json || json.ok !== true) { throw new Error("bad response"); }
+        return cleanList(json.works);
+      }, function (e) { clearTimeout(timer); throw e; });
+  }
+
+  function fetchWorksJson() {
+    return fetch("works.json?t=" + Date.now(), { cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) { throw new Error("HTTP " + r.status); }
+        return r.json();
+      })
+      .then(cleanList);
+  }
+
+  function loadWorks() {
+    return fetchFolderList()
       .then(function (list) {
-        works = (Array.isArray(list) ? list : []).filter(function (w) {
-          return w && w.id && w.title && w.driveId;
-        });
-        if (works.length === 0) {
-          notice("works.json に動画が登録されていません。");
-          return;
-        }
+        if (list.length === 0) { throw new Error("empty"); }
+        return list;
+      })
+      .catch(function () { return fetchWorksJson(); })
+      .then(function (list) {
+        works = list;
         $("start-count").textContent = "全" + works.length + "本";
-        show("start");
       })
       .catch(function () {
-        notice("works.json を読み込めませんでした。");
+        works = [];
+        notice("動画の一覧を読み込めませんでした。");
       });
   }
 
