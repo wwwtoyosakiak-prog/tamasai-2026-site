@@ -7,6 +7,8 @@
   --primary-dark: #2257c4;
   --danger: #c0392b;
   --border: #d9deea;
+  /* 動画の上下に必要な余白（見出し・ボタン・余白）の合計。動画の高さの上限に使う */
+  --chrome: 240px;
 }
 
 * { box-sizing: border-box; }
@@ -22,9 +24,11 @@ body {
 }
 
 .app {
-  max-width: 760px;
+  max-width: 880px;
   margin: 0 auto;
-  padding: 16px;
+  /* ノッチや角丸のある端末でも内容が隠れないようにする */
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+           max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
@@ -49,8 +53,8 @@ body {
   letter-spacing: .08em;
 }
 
-h1 { margin: 4px 0 8px; font-size: clamp(28px, 7vw, 44px); line-height: 1.25; }
-h2 { margin: 0 0 8px; font-size: clamp(20px, 5vw, 28px); line-height: 1.4; }
+h1 { margin: 4px 0 8px; font-size: clamp(28px, 7vw, 48px); line-height: 1.25; }
+h2 { margin: 0 0 8px; font-size: clamp(20px, 4.5vw, 30px); line-height: 1.4; }
 
 .count, .hint, .progress { color: var(--muted); margin: 0 0 20px; }
 .progress { font-weight: 700; margin-bottom: 12px; }
@@ -63,6 +67,7 @@ h2 { margin: 0 0 8px; font-size: clamp(20px, 5vw, 28px); line-height: 1.4; }
   font-weight: 700;
   cursor: pointer;
   padding: 12px 24px;
+  touch-action: manipulation; /* ダブルタップでの拡大を防ぐ */
 }
 .btn-primary { background: var(--primary); color: #fff; }
 .btn-primary:hover { background: var(--primary-dark); }
@@ -84,13 +89,14 @@ h2 { margin: 0 0 8px; font-size: clamp(20px, 5vw, 28px); line-height: 1.4; }
 /* 縦動画（コンテストの標準）：画面の高さに収まる幅にする */
 .player.portrait {
   aspect-ratio: 9 / 16;
-  width: min(100%, calc(68vh * 9 / 16));
-  width: min(100%, calc(68dvh * 9 / 16));
+  width: min(100%, max(180px, calc((100vh - var(--chrome)) * 9 / 16)));
+  width: min(100%, max(180px, calc((100dvh - var(--chrome)) * 9 / 16)));
 }
-/* 横動画 */
+/* 横動画：画面の高さに収まる幅にする */
 .player.landscape {
   aspect-ratio: 16 / 9;
-  width: 100%;
+  width: min(100%, max(240px, calc((100vh - var(--chrome)) * 16 / 9)));
+  width: min(100%, max(240px, calc((100dvh - var(--chrome)) * 16 / 9)));
 }
 .player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .player .placeholder {
@@ -119,6 +125,7 @@ select {
   font-size: 18px;
   padding: 8px 12px;
   min-width: 96px;
+  min-height: 44px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: #fff;
@@ -135,4 +142,55 @@ select {
   padding: 10px 14px;
   margin: 0 0 12px;
   font-size: 14px;
+}
+
+/* ---------- タブレット・PC（幅 768px 以上） ---------- */
+@media (min-width: 768px) {
+  .screen { padding: 40px 32px; }
+  .count, .hint, .progress { font-size: 18px; }
+  .btn-large { font-size: 22px; min-height: 64px; max-width: 420px; }
+  .row { max-width: 460px; padding: 14px 18px; }
+  .row-label { font-size: 20px; }
+  select { font-size: 20px; min-width: 120px; }
+}
+
+/* ---------- 高さが低い横向き（スマホ横・小さいウィンドウ）：左右に並べる ---------- */
+@media (orientation: landscape) and (max-height: 600px) {
+  :root { --chrome: 70px; }
+  /* 黄色い注意が出ているときは、その分だけ動画を小さくする */
+  body:has(#notice:not([hidden])) { --chrome: 130px; }
+
+  .app { justify-content: flex-start; padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .screen { padding: 12px 16px; }
+  h1 { font-size: 30px; margin: 0 0 4px; }
+  h2 { font-size: 20px; margin-bottom: 4px; }
+  .count, .hint, .progress { margin-bottom: 8px; }
+  .btn-large { min-height: 52px; }
+
+  /* 再生画面：動画を左、情報とボタンを右に */
+  #screen-play:not([hidden]) {
+    display: grid;
+    grid-template-columns: auto minmax(200px, 320px);
+    column-gap: 20px;
+    align-content: center;
+    justify-content: center;
+    align-items: center;
+  }
+  #screen-play .player { grid-column: 1; grid-row: 1 / span 2; margin: 0; }
+  #screen-play .progress { grid-column: 2; grid-row: 1; margin: 0; align-self: end; padding-bottom: 12px; }
+  #screen-play .btn { grid-column: 2; grid-row: 2; align-self: start; }
+  /* 縦横どちらの動画も、画面の高さに収まる幅で並べる */
+  #screen-play .player.portrait  { width: calc((100dvh - var(--chrome)) * 9 / 16); }
+  #screen-play .player.landscape { width: min(58vw, calc((100dvh - var(--chrome)) * 16 / 9)); }
+
+  /* アンケート画面：2つの項目を横に並べる */
+  #survey-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 16px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  #survey-form .row { margin: 0; max-width: none; }
+  #survey-form .error, #survey-form .btn { grid-column: 1 / -1; justify-self: center; margin: 0; }
 }
