@@ -193,7 +193,7 @@
       notice("記録先が未設定です。回答はこの端末にだけ保存されます（動作確認用）。");
     }
 
-    fetch("works.json", { cache: "no-store" })
+    fetch("works.json?t=" + Date.now(), { cache: "no-store" })
       .then(function (r) {
         if (!r.ok) { throw new Error("HTTP " + r.status); }
         return r.json();
