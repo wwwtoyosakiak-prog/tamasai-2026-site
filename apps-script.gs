@@ -8,8 +8,16 @@
 
 var MAX_PEOPLE = 10;
 
+// 記録先スプレッドシートのID（URLの /d/ と /edit の間の文字列）。
+// スプレッドシートの「拡張機能 → Apps Script」から作った場合は、空のままで構いません。
+var SHEET_ID = "";
+
+function getSpreadsheet_() {
+  return SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+}
+
 function setup() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getSpreadsheet_();
 
   var answers = ss.getSheetByName("回答") || ss.insertSheet("回答");
   if (answers.getLastRow() === 0) {
@@ -37,7 +45,7 @@ function doPost(e) {
       return json_({ ok: false, error: "invalid count" });
     }
 
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ss = getSpreadsheet_();
     var sheet = ss.getSheetByName("回答");
     if (!sheet) {
       return json_({ ok: false, error: "run setup() first" });
