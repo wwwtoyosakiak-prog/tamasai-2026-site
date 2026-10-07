@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>多摩祭2026 動画コンテスト</title>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 <div class="app">
 
   <p id="notice" class="notice" hidden></p>
+  <p id="queue-status" class="notice" role="status" hidden></p>
 
   <!-- スタート画面 -->
   <section id="screen-start" class="screen" hidden>
@@ -48,12 +49,13 @@
   <!-- 終了画面 -->
   <section id="screen-end" class="screen" hidden>
     <h2>ご覧いただき<br>ありがとうございました</h2>
+    <p id="end-pending" class="error" role="status" hidden></p>
     <button id="btn-restart" class="btn btn-primary btn-large" type="button">スタートに戻る</button>
   </section>
 
 </div>
 
-<script src="config.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="config.js?v=5"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

@@ -112,6 +112,81 @@
     }
   }
 
+  // ---------- アンケートの送信（裏で送って、失敗したら自動で再送する） ----------
+  var QUEUE_KEY = "tamasai_survey_queue";
+  var queueMem = [];
+  var flushing = false;
+  var retryTimer = null;
+  var retryDelay = 3000;
+
+  function persistQueue() {
+    try { localStorage.setItem(QUEUE_KEY, JSON.stringify(queueMem)); } catch (e) { /* 保存できなくても続行 */ }
+  }
+
+  function loadQueue() {
+    try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); } catch (e) { return []; }
+  }
+
+  function newId() {
+    if (window.crypto && window.crypto.randomUUID) { return window.crypto.randomUUID(); }
+    return "id" + Date.now() + Math.random().toString(16).slice(2);
+  }
+
+  function updateQueueStatus() {
+    var n = queueMem.length;
+    var bar = $("queue-status");
+    bar.hidden = n === 0;
+    bar.textContent = "送信待ち " + n + "件（自動で再送します）";
+    var end = $("end-pending");
+    end.hidden = n === 0;
+    end.textContent = "未送信の回答が " + n + "件あります。このページを開いたまま、通信できる場所で少しお待ちください。";
+  }
+
+  function scheduleRetry() {
+    if (retryTimer) { return; }
+    retryTimer = setTimeout(function () { retryTimer = null; flush(); }, retryDelay);
+    retryDelay = Math.min(retryDelay * 2, 30000);
+  }
+
+  function flush() {
+    if (flushing || !ENDPOINT || queueMem.length === 0) { return; }
+    flushing = true;
+    var rec = queueMem[0];
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 20000);
+
+    fetch(ENDPOINT, {
+      method: "POST",
+      // text/plain にすると CORS のプリフライトが発生しない
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(rec),
+      signal: ctrl.signal
+    })
+      .then(function (res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      })
+      .then(function (json) {
+        clearTimeout(timer);
+        // 成功、または二度と通らない回答（人数が不正）は、キューから外す
+        if (json && (json.ok === true || json.error === "invalid count")) {
+          queueMem.shift();
+          persistQueue();
+          updateQueueStatus();
+          retryDelay = 3000;
+          flushing = false;
+          flush();
+        } else {
+          throw new Error((json && json.error) || "unknown");
+        }
+      })
+      .catch(function () {
+        clearTimeout(timer);
+        flushing = false;
+        scheduleRetry();
+      });
+  }
+
   function saveLocal(rec) {
     try {
       var key = "tamasai_survey_local";
@@ -123,7 +198,6 @@
 
   function submitSurvey(ev) {
     ev.preventDefault();
-    if (sending) { return; }
     var funny = parseInt($("sel-funny").value, 10);
     var notFunny = parseInt($("sel-notfunny").value, 10);
     var err = $("survey-error");
@@ -137,6 +211,7 @@
 
     var work = queue[pos];
     var rec = {
+      submissionId: newId(),
       workId: work.id,
       title: work.title,
       funny: funny,
@@ -147,37 +222,14 @@
     if (!ENDPOINT) {
       // 記録先が未設定：この端末にだけ保存して先へ進む（動作確認用）
       saveLocal(rec);
-      afterAnswer();
-      return;
+    } else {
+      queueMem.push(rec);
+      persistQueue();
+      updateQueueStatus();
+      flush();
     }
-
-    sending = true;
-    var btn = $("btn-submit");
-    btn.disabled = true;
-    btn.textContent = "送信中…";
-
-    fetch(ENDPOINT, {
-      method: "POST",
-      // text/plain にすると CORS のプリフライトが発生しない
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(rec)
-    })
-      .then(function (res) {
-        if (!res.ok) { throw new Error("HTTP " + res.status); }
-        return res.json();
-      })
-      .then(function (json) {
-        if (!json || json.ok !== true) { throw new Error((json && json.error) || "unknown"); }
-        sending = false;
-        afterAnswer();
-      })
-      .catch(function () {
-        sending = false;
-        btn.disabled = false;
-        btn.textContent = "もう一度送信";
-        err.textContent = "送信できませんでした。通信状況を確認して、もう一度押してください。";
-        err.hidden = false;
-      });
+    // 返事を待たずに、すぐ次へ進む
+    afterAnswer();
   }
 
   function init() {
@@ -188,6 +240,13 @@
     $("btn-to-survey").addEventListener("click", goSurvey);
     $("survey-form").addEventListener("submit", submitSurvey);
     $("btn-restart").addEventListener("click", function () { show("start"); });
+
+    // 前回送れなかった回答があれば、続きを送る
+    queueMem = loadQueue();
+    updateQueueStatus();
+    flush();
+    window.addEventListener("online", flush);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) { flush(); } });
 
     if (!ENDPOINT) {
       notice("記録先が未設定です。回答はこの端末にだけ保存されます（動作確認用）。");

@@ -21,7 +21,7 @@ function setup() {
 
   var answers = ss.getSheetByName("回答") || ss.insertSheet("回答");
   if (answers.getLastRow() === 0) {
-    answers.appendRow(["受信日時", "作品ID", "作品名", "面白かった(人)", "面白くなかった(人)", "端末送信日時"]);
+    answers.appendRow(["受信日時", "作品ID", "作品名", "面白かった(人)", "面白くなかった(人)", "端末送信日時", "送信ID"]);
     answers.setFrozenRows(1);
   }
 
@@ -34,36 +34,46 @@ function setup() {
 }
 
 function doPost(e) {
-  var lock = LockService.getScriptLock();
   try {
-    lock.waitLock(10000);
-
     var data = JSON.parse(e.postData.contents);
     var funny = toCount_(data.funny);
     var notFunny = toCount_(data.notFunny);
     if (funny === null || notFunny === null || funny + notFunny < 1) {
       return json_({ ok: false, error: "invalid count" });
     }
+    var submissionId = String(data.submissionId || "").slice(0, 100);
 
-    var ss = getSpreadsheet_();
-    var sheet = ss.getSheetByName("回答");
-    if (!sheet) {
-      return json_({ ok: false, error: "run setup() first" });
+    var lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      var ss = getSpreadsheet_();
+      var sheet = ss.getSheetByName("回答");
+      if (!sheet) {
+        return json_({ ok: false, error: "run setup() first" });
+      }
+      if (!sheet.getRange("G1").getValue()) { sheet.getRange("G1").setValue("送信ID"); }
+
+      // 再送で同じ回答が二重に入らないようにする
+      if (submissionId) {
+        var found = sheet.getRange("G:G").createTextFinder(submissionId).matchEntireCell(true).findNext();
+        if (found) { return json_({ ok: true, duplicate: true }); }
+      }
+
+      sheet.appendRow([
+        new Date(),
+        String(data.workId || "").slice(0, 100),
+        String(data.title || "").slice(0, 200),
+        funny,
+        notFunny,
+        String(data.sentAt || "").slice(0, 40),
+        submissionId
+      ]);
+      return json_({ ok: true });
+    } finally {
+      lock.releaseLock();
     }
-
-    sheet.appendRow([
-      new Date(),
-      String(data.workId || "").slice(0, 100),
-      String(data.title || "").slice(0, 200),
-      funny,
-      notFunny,
-      String(data.sentAt || "").slice(0, 40)
-    ]);
-    return json_({ ok: true });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
-  } finally {
-    lock.releaseLock();
   }
 }
 
