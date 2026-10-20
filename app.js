@@ -312,14 +312,12 @@
 
   function loadWorks() {
     return fetchFolderList()
-      .then(function (list) {
-        if (list.length === 0) { throw new Error("empty"); }
-        return list;
-      })
       .catch(function () { return fetchWorksJson(); })
       .then(function (list) {
         works = list;
         $("start-count").textContent = "全" + works.length + "本";
+        if (works.length === 0) { notice("動画が登録されていません。"); }
+        else if (ENDPOINT) { notice(""); }
       })
       .catch(function () {
         works = [];
