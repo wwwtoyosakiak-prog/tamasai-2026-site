@@ -254,3 +254,51 @@ textarea {
   .q { margin-bottom: 14px; }
 }
 .start-link { margin: 20px 0 0; }
+
+/* ---------- iPad 11インチなどの横向き（タッチ操作・幅900px以上・高さ900px以下）：1画面に収める ---------- */
+@media (orientation: landscape) and (min-width: 900px) and (max-height: 900px) and (pointer: coarse) {
+  :root { --chrome: 90px; }
+  body:has(#notice:not([hidden])) { --chrome: 150px; }
+  .app { padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .screen { padding: 20px 28px; }
+  h1 { font-size: 34px; margin: 0 0 6px; }
+  .count, .hint, .progress { margin-bottom: 10px; }
+
+  /* 動画の再生：動画を左、番号とボタンを右に（動画を大きく） */
+  #screen-play:not([hidden]) {
+    display: grid;
+    grid-template-columns: auto minmax(260px, 420px);
+    column-gap: 32px;
+    align-content: center;
+    justify-content: center;
+    align-items: center;
+  }
+  #screen-play .player { grid-column: 1; grid-row: 1 / span 2; margin: 0; }
+  #screen-play .progress { grid-column: 2; grid-row: 1; margin: 0; align-self: end; padding-bottom: 16px; font-size: 22px; }
+  #screen-play .btn { grid-column: 2; grid-row: 2; align-self: start; }
+  #screen-play .player.portrait  { width: calc((100dvh - var(--chrome)) * 9 / 16); }
+  #screen-play .player.landscape { width: min(60vw, calc((100dvh - var(--chrome)) * 16 / 9)); }
+
+  /* 動画コンテストのアンケート：2つの項目を横に並べる */
+  #survey-form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; max-width: 760px; margin: 0 auto; }
+  #survey-form .row { margin: 0; max-width: none; }
+  #survey-form .error, #survey-form .btn { grid-column: 1 / -1; justify-self: center; margin: 0; }
+
+  /* ワークショップ アンケート：左に①②、右に③④を並べて、送信ボタンまで1画面に */
+  .ws-title { font-size: 30px; }
+  #ws-form { display: grid; grid-template-columns: 1.3fr 1fr; column-gap: 28px; align-items: start; }
+  #ws-form .q:nth-of-type(1) { grid-column: 1; grid-row: 1; }
+  #ws-form .q:nth-of-type(2) { grid-column: 1; grid-row: 2; }
+  #ws-form .q:nth-of-type(3) { grid-column: 2; grid-row: 1; }
+  #ws-form .q:nth-of-type(4) { grid-column: 2; grid-row: 2; }
+  #ws-form .q { margin-bottom: 12px; }
+  #ws-form .q legend { font-size: 18px; margin-bottom: 8px; }
+  #ws-form .choice { flex: 1 1 90px; font-size: 19px; padding: 8px 4px; white-space: nowrap; }
+  #ws-form .ws-summary, #ws-form .error, #ws-form .btn-large { grid-column: 1 / -1; }
+  .faces .choice { flex-direction: column; min-height: 96px; }
+  .faces .face { font-size: 40px; }
+  .choice { min-height: 68px; }
+  textarea { min-height: 92px; }
+  .ws-foot { margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 24px; flex-wrap: wrap; }
+  .ws-foot .count, .ws-foot p { margin: 0; }
+}
