@@ -267,13 +267,8 @@
       notice("記録先が未設定です。回答はこの端末にだけ保存されます（動作確認用）。");
     }
 
-    loadWorks().then(function () {
-      if (works.length === 0) {
-        notice("動画が登録されていません。");
-        return;
-      }
-      show("start");
-    });
+    // 動画が0本でも開始画面は表示する（ワークショップ アンケートへ入れるように）
+    loadWorks().then(function () { show("start"); });
   }
 
   // ---------- 動画一覧の読み込み ----------
