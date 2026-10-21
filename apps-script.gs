@@ -48,7 +48,23 @@ function setup() {
   summary.getRange("F1").setValue("面白かった（棒）");
   summary.getRange("F2").setFormula('=ARRAYFORMULA(IF(C2:C="","",REPT("■",C2:C)))');
 
-  summary.getRange("A1:F1").setFontWeight("bold").setBackground("#e8eefc");
+  // 合計(人)：その作品の投票数（面白かった＋面白くなかった）
+  summary.getRange("G1").setValue("合計(人)");
+  summary.getRange("G2").setFormula('=ARRAYFORMULA(IF(C2:C="","",C2:C+D2:D))');
+  // 全体の合計（I〜J列）：総投票数など
+  summary.getRange("I1").setValue("全体の合計");
+  summary.getRange("I2:I5").setValues([["総投票数(人)"], ["面白かった(人)"], ["面白くなかった(人)"], ["作品数"]]);
+  summary.getRange("J2").setFormula('=SUM(C2:C)+SUM(D2:D)');
+  summary.getRange("J3").setFormula('=SUM(C2:C)');
+  summary.getRange("J4").setFormula('=SUM(D2:D)');
+  summary.getRange("J5").setFormula('=COUNTA(B2:B)-COUNTIF(B2:B,"まだ回答がありません")');
+
+  summary.getRange("A1:G1").setFontWeight("bold").setBackground("#e8eefc");
+  summary.getRange("I1:J1").setFontWeight("bold").setBackground("#e8eefc");
+  summary.getRange("I2:I5").setFontWeight("bold");
+  summary.getRange("J2:J5").setFontWeight("bold").setFontSize(14).setHorizontalAlignment("right");
+  summary.getRange("D2:D").setFontWeight("bold");
+  summary.getRange("G2:G").setFontWeight("bold").setHorizontalAlignment("right");
   summary.setFrozenRows(1);
   summary.getRange("A2:A").setHorizontalAlignment("center");
   summary.getRange("C2:C").setFontWeight("bold").setFontSize(14);
@@ -57,13 +73,16 @@ function setup() {
   summary.setColumnWidth(2, 260);
   summary.setColumnWidths(3, 3, 120);
   summary.setColumnWidth(6, 360);
+  summary.setColumnWidth(7, 90);
+  summary.setColumnWidth(8, 30);
+  summary.setColumnWidths(9, 2, 140);
   // 1位の行を目立たせる
   summary.setConditionalFormatRules([
     SpreadsheetApp.newConditionalFormatRule()
       .whenFormulaSatisfied("=$A2=1")
       .setBackground("#fff2cc")
       .setBold(true)
-      .setRanges([summary.getRange("A2:F200")])
+      .setRanges([summary.getRange("A2:G200")])
       .build()
   ]);
 
