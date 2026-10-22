@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>多摩祭2026 ワークショップ アンケート</title>
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=14">
 </head>
 <body class="ws-page">
 <div class="app">
 
   <p id="notice" class="notice" hidden></p>
+  <p id="stale" class="notice stale" role="alert" hidden>質問が変更されました。ページを更新してください。 <button type="button" id="stale-reload" class="btn btn-sub">ページを更新</button></p>
   <p id="queue-status" class="notice" role="status" hidden></p>
 
   <section class="screen ws-screen">
@@ -20,34 +21,30 @@
     <form id="ws-form" novalidate>
 
       <fieldset class="q">
-        <legend>① きょうの ダンボールガチャ ペパポン ワークショップは たのしかった？</legend>
+        <legend>① ペパポンを つくって、たのしかった？</legend>
         <div class="choices faces" data-q="q1">
           <button type="button" class="choice" data-v="たのしかった" aria-pressed="false"><span class="face" aria-hidden="true">😆</span><span>たのしかった</span></button>
           <button type="button" class="choice" data-v="ふつう" aria-pressed="false"><span class="face" aria-hidden="true">😐</span><span>ふつう</span></button>
-          <button type="button" class="choice" data-v="つまらない" aria-pressed="false"><span class="face" aria-hidden="true">😢</span><span>つまらない</span></button>
+          <button type="button" class="choice" data-v="たのしくなかった" aria-pressed="false"><span class="face" aria-hidden="true">😢</span><span>たのしくなかった</span></button>
         </div>
       </fieldset>
 
       <fieldset class="q">
-        <legend>② キットづくりは かんたんだった？ むずかしかった？</legend>
-        <div class="choices" data-q="q2">
-          <button type="button" class="choice" data-v="かんたん" aria-pressed="false"><span>かんたん</span></button>
-          <button type="button" class="choice" data-v="ちょうどいい" aria-pressed="false"><span>ちょうどいい</span></button>
-          <button type="button" class="choice" data-v="むずかしい" aria-pressed="false"><span>むずかしい</span></button>
+        <legend>② きょう、わかったことは どれかな？（いくつでも）</legend>
+        <div class="choices multi" data-q="q2" data-multi="1">
+          <button type="button" class="choice" data-v="ダンボールは、リサイクルしてまたつかえる" aria-pressed="false"><span>ダンボールは、<br>リサイクルして また つかえる</span></button>
+          <button type="button" class="choice" data-v="カプセルづくりは、しょうがいのあるひとのおしごとにつながる" aria-pressed="false"><span>カプセルづくりは、<br>しょうがいのある ひとの おしごとに つながる</span></button>
+          <button type="button" class="choice" data-v="まだよくわからない" data-exclusive="1" aria-pressed="false"><span>まだ よくわからない</span></button>
         </div>
       </fieldset>
 
       <fieldset class="q">
-        <legend>③ また やりたい？</legend>
+        <legend>③ おうちのひとと、リサイクルを してみたい？</legend>
         <div class="choices" data-q="q3">
-          <button type="button" class="choice" data-v="やりたい" aria-pressed="false"><span>やりたい</span></button>
-          <button type="button" class="choice" data-v="やりたくない" aria-pressed="false"><span>やりたくない</span></button>
+          <button type="button" class="choice" data-v="してみたい" aria-pressed="false"><span>してみたい</span></button>
+          <button type="button" class="choice" data-v="まだわからない" aria-pressed="false"><span>まだ わからない</span></button>
+          <button type="button" class="choice" data-v="したくない" aria-pressed="false"><span>したくない</span></button>
         </div>
-      </fieldset>
-
-      <fieldset class="q">
-        <legend>④ ひとこと（なくてもOK）</legend>
-        <textarea id="ws-comment" rows="3" maxlength="500" placeholder="おもったこと・かんそうを いれてください"></textarea>
       </fieldset>
 
       <p id="ws-summary" class="ws-summary" aria-live="polite"></p>
@@ -66,7 +63,7 @@
 
 </div>
 
-<script src="config.js?v=13"></script>
-<script src="satisfaction.js?v=13"></script>
+<script src="config.js?v=14"></script>
+<script src="satisfaction.js?v=14"></script>
 </body>
 </html>

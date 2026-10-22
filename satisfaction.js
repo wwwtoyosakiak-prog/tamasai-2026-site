@@ -5,7 +5,8 @@
   var ENDPOINT = CFG.SURVEY_ENDPOINT || "";
   var $ = function (id) { return document.getElementById(id); };
 
-  var answers = { q1: "", q2: "", q3: "" };
+  var WS_VERSION = 2;   // 質問の版（apps-script.gs の WS_VERSION と同じ）
+  var answers = { q1: "", q2: [], q3: "" };
   var lastId = null;   // 直前に送った1件（取り消し用）
 
   var QUEUE_KEY = "tamasai_ws_queue";
@@ -38,20 +39,22 @@
     toastTimer = setTimeout(function () { el.hidden = true; }, 4000);
   }
 
+  function hasAnswer() { return !!(answers.q1 || answers.q2.length || answers.q3); }
+
   function updateSummary() {
-    var parts = [answers.q1, answers.q2, answers.q3].filter(function (v) { return v; });
-    var comment = $("ws-comment").value.trim();
-    $("ws-summary").textContent = parts.length === 0
+    $("ws-summary").textContent = !hasAnswer()
       ? ""
-      : "えらんだ内容： " + [answers.q1 || "①まだ", answers.q2 || "②まだ", answers.q3 || "③まだ"].join(" ／ ") +
-        (comment ? " ／ ひとこと有り" : "");
+      : "えらんだ内容： " + [
+          answers.q1 || "①まだ",
+          answers.q2.length ? answers.q2.length + "こ" : "②まだ",
+          answers.q3 || "③まだ"
+        ].join(" ／ ");
   }
 
   function resetForm() {
-    answers = { q1: "", q2: "", q3: "" };
+    answers = { q1: "", q2: [], q3: "" };
     var btns = document.querySelectorAll(".choice");
     for (var i = 0; i < btns.length; i++) { btns[i].setAttribute("aria-pressed", "false"); }
-    $("ws-comment").value = "";
     $("ws-error").hidden = true;
     updateSummary();
     window.scrollTo(0, 0);
@@ -62,10 +65,33 @@
     if (!btn) { return; }
     var group = btn.parentNode;
     var q = group.getAttribute("data-q");
-    answers[q] = btn.getAttribute("data-v");
+    var v = btn.getAttribute("data-v");
     var sibs = group.querySelectorAll(".choice");
-    for (var i = 0; i < sibs.length; i++) {
-      sibs[i].setAttribute("aria-pressed", sibs[i] === btn ? "true" : "false");
+    var i;
+    if (group.getAttribute("data-multi")) {
+      // いくつでも：もう一度おすと はずれる。「まだよくわからない」は ほかと同時にえらべない
+      var on = btn.getAttribute("aria-pressed") !== "true";
+      if (on && btn.getAttribute("data-exclusive")) {
+        for (i = 0; i < sibs.length; i++) { sibs[i].setAttribute("aria-pressed", sibs[i] === btn ? "true" : "false"); }
+      } else {
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+        if (on) {
+          for (i = 0; i < sibs.length; i++) {
+            if (sibs[i].getAttribute("data-exclusive")) { sibs[i].setAttribute("aria-pressed", "false"); }
+          }
+        }
+      }
+      answers[q] = [];
+      for (i = 0; i < sibs.length; i++) {
+        if (sibs[i].getAttribute("aria-pressed") === "true") { answers[q].push(sibs[i].getAttribute("data-v")); }
+      }
+    } else {
+      // 1つだけ：同じものをもう一度おすと はずれる（答えなし）
+      var same = answers[q] === v;
+      answers[q] = same ? "" : v;
+      for (i = 0; i < sibs.length; i++) {
+        sibs[i].setAttribute("aria-pressed", (!same && sibs[i] === btn) ? "true" : "false");
+      }
     }
     $("ws-error").hidden = true;
     updateSummary();
@@ -149,19 +175,20 @@
   function submit(ev) {
     ev.preventDefault();
     var err = $("ws-error");
-    if (!answers.q1 || !answers.q2 || !answers.q3) {
-      err.textContent = "①②③を えらんでください。";
+    if (stale) { return; }
+    if (!hasAnswer()) {
+      err.textContent = "どれか ひとつは えらんでください。";
       err.hidden = false;
       return;
     }
     var id = newId();
     enqueue({
       kind: "workshop",
+      v: WS_VERSION,
       submissionId: id,
       q1: answers.q1,
       q2: answers.q2,
       q3: answers.q3,
-      comment: $("ws-comment").value.trim(),
       sentAt: new Date().toISOString()
     });
     lastId = id;
@@ -194,10 +221,30 @@
     toast("直前の1件を取り消しました。");
   }
 
+  // ---------- 質問が変更されたかの確認 ----------
+  var stale = false;
+  function markStale() {
+    stale = true;
+    $("stale").hidden = false;
+    $("ws-submit").disabled = true;
+  }
+  function checkVersion() {
+    if (!ENDPOINT || stale) { return; }
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 10000);
+    fetch(ENDPOINT + "?t=" + Date.now(), { cache: "no-store", signal: ctrl.signal })
+      .then(function (r) { return r.json(); })
+      .then(function (json) {
+        clearTimeout(timer);
+        if (json && json.ok === true && Number(json.wsVersion) > WS_VERSION) { markStale(); }
+      })
+      .catch(function () { clearTimeout(timer); });
+  }
+
   function init() {
+    $("stale-reload").addEventListener("click", function () { location.reload(); });
     var groups = document.querySelectorAll(".choices");
     for (var i = 0; i < groups.length; i++) { groups[i].addEventListener("click", onChoice); }
-    $("ws-comment").addEventListener("input", updateSummary);
     $("ws-form").addEventListener("submit", submit);
     $("ws-undo").addEventListener("click", undo);
 
@@ -206,7 +253,8 @@
     updateQueueStatus();
     flush();
     window.addEventListener("online", flush);
-    document.addEventListener("visibilitychange", function () { if (!document.hidden) { flush(); } });
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) { flush(); checkVersion(); } });
+    checkVersion();
 
     if (!ENDPOINT) {
       var n = $("notice");

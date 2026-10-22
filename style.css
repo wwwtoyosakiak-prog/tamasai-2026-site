@@ -288,9 +288,9 @@ textarea {
   .ws-title { font-size: 30px; }
   #ws-form { display: grid; grid-template-columns: 1.3fr 1fr; column-gap: 28px; align-items: start; }
   #ws-form .q:nth-of-type(1) { grid-column: 1; grid-row: 1; }
-  #ws-form .q:nth-of-type(2) { grid-column: 1; grid-row: 2; }
-  #ws-form .q:nth-of-type(3) { grid-column: 2; grid-row: 1; }
-  #ws-form .q:nth-of-type(4) { grid-column: 2; grid-row: 2; }
+  #ws-form .q:nth-of-type(2) { grid-column: 2; grid-row: 1 / span 2; }
+  #ws-form .q:nth-of-type(3) { grid-column: 1; grid-row: 2; }
+  #ws-form .multi .choice { flex: 1 1 100%; white-space: normal; }
   #ws-form .q { margin-bottom: 12px; }
   #ws-form .q legend { font-size: 18px; margin-bottom: 8px; }
   #ws-form .choice { flex: 1 1 90px; font-size: 19px; padding: 8px 4px; white-space: nowrap; }
@@ -302,3 +302,8 @@ textarea {
   .ws-foot { margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 24px; flex-wrap: wrap; }
   .ws-foot .count, .ws-foot p { margin: 0; }
 }
+
+/* 質問が変更されたときの案内 / 「いくつでも」の質問 */
+.notice.stale { background: #ffe3e3; border-color: #d62828; color: #7a1010; font-weight: 700; }
+.notice.stale .btn { margin-left: 8px; }
+.multi .choice { flex: 1 1 100%; line-height: 1.4; text-align: center; }

@@ -90,67 +90,102 @@ function setup() {
 }
 
 // ワークショップの満足度アンケート用のシート
-var WS_Q1 = ["たのしかった", "ふつう", "つまらない"];
-var WS_Q2 = ["かんたん", "ちょうどいい", "むずかしい"];
-var WS_Q3 = ["やりたい", "やりたくない"];
+// 質問の版。質問を変えたら増やす（サイトの古い画面は「ページを更新してください」と表示される）
+var WS_VERSION = 2;
+var WS_Q1 = ["たのしかった", "ふつう", "たのしくなかった"];
+var WS_Q2 = ["ダンボールは、リサイクルしてまたつかえる", "カプセルづくりは、しょうがいのあるひとのおしごとにつながる", "まだよくわからない"];
+var WS_Q2_UNSURE = "まだよくわからない";
+var WS_Q3 = ["してみたい", "まだわからない", "したくない"];
+var WS_SEP = "|";   // 2番の複数回答を1つのセルに並べるときの区切り
+var WS_INVALID = "無効";
+
+// 前の版（4問）の回答。古い画面から届いた分は「満足度_旧」に記録する
+var OLD_Q1 = ["たのしかった", "ふつう", "つまらない"];
+var OLD_Q2 = ["かんたん", "ちょうどいい", "むずかしい"];
+var OLD_Q3 = ["やりたい", "やりたくない"];
+var OLD_HEADER = ["受信日時", "たのしかった？", "キットづくり", "また やりたい？", "ひとこと", "端末送信日時", "送信ID", "取消"];
+var WS_HEADER = ["受信日時", "1 たのしかった？", "2 わかったこと（いくつでも）", "3 リサイクルしてみたい？", "端末送信日時", "送信ID", "取消"];
+
+function legacySheet_(ss) {
+  var sh = ss.getSheetByName("満足度_旧");
+  if (!sh) {
+    sh = ss.insertSheet("満足度_旧");
+    sh.appendRow(OLD_HEADER);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
 
 function setupWorkshop_(ss) {
-  var sheet = ss.getSheetByName("満足度") || ss.insertSheet("満足度");
+  // 前の版の「満足度」シートは、消さずに「満足度_旧」へ名前を変えて残す
+  var sheet = ss.getSheetByName("満足度");
+  if (sheet && sheet.getRange("B1").getValue() === OLD_HEADER[1] && !ss.getSheetByName("満足度_旧")) {
+    sheet.setName("満足度_旧");
+    sheet = null;
+  }
+  sheet = ss.getSheetByName("満足度") || ss.insertSheet("満足度");
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(["受信日時", "たのしかった？", "キットづくり", "また やりたい？", "ひとこと", "端末送信日時", "送信ID", "取消"]);
+    sheet.appendRow(WS_HEADER);
     sheet.setFrozenRows(1);
+    sheet.setColumnWidth(3, 420);
   }
 
   var sum = ss.getSheetByName("満足度集計") || ss.insertSheet("満足度集計");
   sum.clear();
-  var R = "満足度!$H$2:$H"; // 取消の列：「取消」が付いた回答は数えない
-  var rows = [["質問", "答え", "人数", "割合"]];
-  var addGroup = function (title, col, items) {
-    items.forEach(function (item, i) {
+  var G = '満足度!$G$2:$G';                 // 取消の列：「取消」が付いた回答は数えない
+  var A = '満足度!$A$2:$A';                 // 受信日時（回答のある行）
+  var rows = [];                             // [A, B, C(式または値), D(式または値)]
+  var bold = [], titleRows = [], noteRows = [];
+  var add = function (r) { rows.push(r); return rows.length; };
+
+  var addGroup = function (title, col, items, multi) {
+    var C = '満足度!$' + col + '$2:$' + col;
+    var valid = 'COUNTIFS(' + C + ',"<>",' + C + ',"<>' + WS_INVALID + '",' + G + ',"<>取消")';
+    var blank = 'COUNTIFS(' + A + ',"<>",' + C + ',"",' + G + ',"<>取消")';
+    var bad = 'COUNTIFS(' + C + ',"' + WS_INVALID + '",' + G + ',"<>取消")';
+    titleRows.push(add([title, "選択肢", "人数", "割合"]));
+    var first = rows.length + 1, last = first + items.length - 1;
+    var validRow = last + 1;
+    items.forEach(function (item) {
       var r = rows.length + 1;
-      rows.push([
-        i === 0 ? title : "",
-        item,
-        '=COUNTIFS(満足度!$' + col + '$2:$' + col + ',"' + item + '",' + R + ',"<>取消")',
-        '=IFERROR(C' + r + '/SUM(C' + (rows.length + 1 - i) + ':C' + (rows.length + items.length - i) + '),0)'
-      ]);
+      var crit = multi ? '"*"&"' + item + '"&"*"' : '"' + item + '"';
+      add(["", item, '=COUNTIFS(' + C + ',' + crit + ',' + G + ',"<>取消")',
+           '=IFERROR(C' + r + '/$C$' + validRow + ',0)']);
     });
+    // 有効回答の件数（割合のもと）。1行にまとめて「有効回答：○件　未回答：○件　無効回答：○件」と表示する
+    add(["", "有効回答：", '=' + valid, ""]);
+    var lineRow = add(["", '="有効回答："&' + valid + '&"件　未回答："&' + blank + '&"件　無効回答："&' + bad + '&"件"', "", ""]);
+    noteRows.push(lineRow);
+    if (multi) { add(["", "※いくつでも えらべるため、割合の合計は100%をこえることがあります", "", ""]); }
+    add(["", "", "", ""]);
   };
-  addGroup("1. ワークショップはたのしかった？", "B", WS_Q1);
-  addGroup("2. キットづくりは？", "C", WS_Q2);
-  addGroup("3. また やりたい？", "D", WS_Q3);
-  sum.getRange(1, 1, rows.length, 4).setValues(rows.map(function (r) {
-    return r.map(function (v) { return typeof v === "string" && v.charAt(0) === "=" ? "" : v; });
-  }));
-  // 数式は setFormula で入れる（setValues だと文字として扱われる場合があるため）
+  addGroup("1 ペパポンをつくって、たのしかった", "B", WS_Q1, false);
+  addGroup("2 きょう、わかったことはどれかな（いくつでも）", "C", WS_Q2, true);
+  addGroup("3 おうちのひとと、リサイクルをしてみたい", "D", WS_Q3, false);
+  var total = add(["回答の合計（人）", "", '=COUNTIFS(' + A + ',"<>",' + G + ',"<>取消")', ""]);
+
   rows.forEach(function (r, i) {
-    if (i === 0) { return; }
-    sum.getRange(i + 1, 3).setFormula(r[2]);
-    sum.getRange(i + 1, 4).setFormula(r[3]);
+    var row = i + 1;
+    sum.getRange(row, 1).setValue(r[0]);
+    [1, 2, 3].forEach(function (k) {
+      var v = r[k];
+      if (v === "") { return; }
+      var cell = sum.getRange(row, k + 1);
+      if (typeof v === "string" && v.charAt(0) === "=") { cell.setFormula(v); } else { cell.setValue(v); }
+    });
+    if (r[3] !== "" && r[3] !== undefined && String(r[3]).indexOf("IFERROR") >= 0) {
+      sum.getRange(row, 4).setNumberFormat("0%");
+    }
   });
-  sum.getRange(2, 4, rows.length - 1, 1).setNumberFormat("0%");
-
-  var total = rows.length + 2;
-  sum.getRange(total, 1).setValue("回答の合計（人）");
-  sum.getRange(total, 3).setFormula('=COUNTIFS(満足度!$B$2:$B,"<>",' + R + ',"<>取消")');
-
-  sum.getRange("F1").setValue("ひとこと");
-  sum.getRange("F2").setFormula(
-    '=IFERROR(FILTER(満足度!E2:E, 満足度!E2:E<>"", 満足度!H2:H<>"取消"), "")'
-  );
-
-  sum.getRange("A1:D1").setFontWeight("bold").setBackground("#e8eefc");
-  sum.getRange("F1").setFontWeight("bold").setBackground("#e8eefc");
+  titleRows.forEach(function (r) {
+    sum.getRange(r, 1, 1, 4).setFontWeight("bold").setBackground("#e8eefc");
+  });
+  noteRows.forEach(function (r) { sum.getRange(r, 2).setFontWeight("bold"); });
   sum.getRange(total, 1, 1, 3).setFontWeight("bold");
-  sum.getRange(2, 1, rows.length - 1, 1).setFontWeight("bold");
-  sum.getRange(2, 3, rows.length - 1, 1).setFontWeight("bold").setFontSize(14);
-  sum.setFrozenRows(1);
-  sum.setColumnWidth(1, 260);
-  sum.setColumnWidth(2, 140);
+  sum.getRange("C1:C" + total).setFontWeight("bold").setFontSize(14);
+  sum.setColumnWidth(1, 330);
+  sum.setColumnWidth(2, 420);
   sum.setColumnWidths(3, 2, 90);
-  sum.setColumnWidth(5, 30);
-  sum.setColumnWidth(6, 480);
-  sum.getRange("F2:F").setWrap(true);
 }
 
 // 動画フォルダの中身を一覧で返す（サイトのスタート時に読み込まれる）
@@ -169,7 +204,7 @@ function doGet(e) {
       });
     }
     list.sort(function (a, b) { return a.title < b.title ? -1 : a.title > b.title ? 1 : 0; });
-    return json_({ ok: true, works: list });
+    return json_({ ok: true, works: list, wsVersion: WS_VERSION });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
   }
@@ -182,7 +217,8 @@ function doPost(e) {
     var records = Array.isArray(data.records) ? data.records : [data];
 
     var valid = [];     // 動画コンテストの回答
-    var workshop = [];  // ワークショップの満足度
+    var workshop = [];  // ワークショップの満足度（今の版）
+    var legacy = [];    // ワークショップの満足度（前の版）
     var cancels = [];   // ワークショップの回答の取り消し
     records.forEach(function (r) {
       if (r && r.kind === "workshop") {
@@ -190,13 +226,30 @@ function doPost(e) {
           if (r.targetId) { cancels.push(String(r.targetId).slice(0, 100)); }
           return;
         }
-        if (WS_Q1.indexOf(r.q1) < 0 || WS_Q2.indexOf(r.q2) < 0 || WS_Q3.indexOf(r.q3) < 0) { return; }
-        workshop.push({
-          id: String(r.submissionId || "").slice(0, 100),
-          q1: r.q1, q2: r.q2, q3: r.q3,
-          comment: String(r.comment || "").slice(0, 500),
-          sentAt: String(r.sentAt || "").slice(0, 40)
-        });
+        var wid = String(r.submissionId || "").slice(0, 100);
+        var wsent = String(r.sentAt || "").slice(0, 40);
+        if (Number(r.v) === WS_VERSION) {
+          // 今の版：空は「未回答」、決まった選択肢以外や矛盾した組み合わせは「無効」
+          var one = function (v, list) {
+            if (v === undefined || v === null || v === "") { return ""; }
+            return list.indexOf(v) >= 0 ? v : WS_INVALID;
+          };
+          var a1 = one(r.q1, WS_Q1), a3 = one(r.q3, WS_Q3), a2 = "";
+          var picked = Array.isArray(r.q2) ? r.q2 : (r.q2 ? [r.q2] : []);
+          if (picked.length > 0) {
+            var okAll = picked.every(function (v) { return WS_Q2.indexOf(v) >= 0; });
+            var uniq = WS_Q2.filter(function (v) { return picked.indexOf(v) >= 0; });
+            var clash = uniq.indexOf(WS_Q2_UNSURE) >= 0 && uniq.length > 1;
+            a2 = (!okAll || clash) ? WS_INVALID : uniq.join(WS_SEP);
+          }
+          if (a1 === "" && a2 === "" && a3 === "") { return; }
+          workshop.push({ id: wid, q1: a1, q2: a2, q3: a3, sentAt: wsent });
+        } else if (r.v === undefined &&
+                   OLD_Q1.indexOf(r.q1) >= 0 && OLD_Q2.indexOf(r.q2) >= 0 && OLD_Q3.indexOf(r.q3) >= 0) {
+          // 前の版の画面から届いた回答は「満足度_旧」へ
+          legacy.push({ id: wid, q1: r.q1, q2: r.q2, q3: r.q3,
+                        comment: String(r.comment || "").slice(0, 500), sentAt: wsent });
+        }
         return;
       }
       var funny = toCount_(r.funny);
@@ -211,7 +264,7 @@ function doPost(e) {
         sentAt: String(r.sentAt || "").slice(0, 40)
       });
     });
-    if (valid.length === 0 && workshop.length === 0 && cancels.length === 0) {
+    if (valid.length === 0 && workshop.length === 0 && legacy.length === 0 && cancels.length === 0) {
       return json_({ ok: false, error: "invalid count" });
     }
 
@@ -253,15 +306,15 @@ function doPost(e) {
         added += rows.length;
       }
 
-      if (workshop.length > 0 || cancels.length > 0) {
+      if (workshop.length > 0 || legacy.length > 0 || cancels.length > 0) {
         var ws = ss.getSheetByName("満足度");
         if (!ws) {
           return json_({ ok: false, error: "run setup() first" });
         }
-        var ids = {}; // 送信ID → 行番号
+        var ids = {};    // 今の版：送信ID → 行番号（G列に取消）
         var wlast = ws.getLastRow();
         if (wlast >= 2) {
-          ws.getRange(2, 7, wlast - 1, 1).getValues().forEach(function (row, i) {
+          ws.getRange(2, 6, wlast - 1, 1).getValues().forEach(function (row, i) {
             if (row[0]) { ids[String(row[0])] = i + 2; }
           });
         }
@@ -269,15 +322,39 @@ function doPost(e) {
         workshop.forEach(function (r) {
           if (r.id && ids[r.id]) { duplicates++; return; }
           if (r.id) { ids[r.id] = wlast + 1 + wrows.length; } // 追加後の行番号
-          wrows.push([now, r.q1, r.q2, r.q3, r.comment, r.sentAt, r.id, ""]);
+          wrows.push([now, r.q1, r.q2, r.q3, r.sentAt, r.id, ""]);
         });
         if (wrows.length > 0) {
-          ws.getRange(wlast + 1, 1, wrows.length, 8).setValues(wrows);
+          ws.getRange(wlast + 1, 1, wrows.length, 7).setValues(wrows);
           added += wrows.length;
         }
+
+        // 前の版（満足度_旧）：記録と取り消し
+        var lids = {};   // 送信ID → 行番号（H列に取消）
+        var lsh = (legacy.length > 0) ? legacySheet_(ss) : ss.getSheetByName("満足度_旧");
+        if (lsh) {
+          var llast = lsh.getLastRow();
+          if (llast >= 2) {
+            lsh.getRange(2, 7, llast - 1, 1).getValues().forEach(function (row, i) {
+              if (row[0]) { lids[String(row[0])] = i + 2; }
+            });
+          }
+          var lrows = [];
+          legacy.forEach(function (r) {
+            if (r.id && lids[r.id]) { duplicates++; return; }
+            if (r.id) { lids[r.id] = llast + 1 + lrows.length; }
+            lrows.push([now, r.q1, r.q2, r.q3, r.comment, r.sentAt, r.id, ""]);
+          });
+          if (lrows.length > 0) {
+            lsh.getRange(llast + 1, 1, lrows.length, 8).setValues(lrows);
+            added += lrows.length;
+          }
+        }
+
         // 取り消し：行は消さず、「取消」と印を付ける（集計には数えない）
         cancels.forEach(function (id) {
-          if (ids[id]) { ws.getRange(ids[id], 8).setValue("取消"); }
+          if (ids[id]) { ws.getRange(ids[id], 7).setValue("取消"); }
+          else if (lids[id]) { lsh.getRange(lids[id], 8).setValue("取消"); }
         });
       }
 
