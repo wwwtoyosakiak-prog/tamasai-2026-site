@@ -2,7 +2,7 @@
  * 多摩祭2026 動画コンテスト：アンケート記録用スクリプト（Google Apps Script）
  *
  * 使い方は README.md の「アンケートの記録先を設定する」を参照。
- * 1. setup() を1回だけ実行する（シート「回答」「集計」を作ります）
+ * 1. setup() を実行する（シートを作り、集計・見た目・並び順を整えます。何回実行しても記録は消えません）
  * 2. 「デプロイ」→「ウェブアプリ」として公開し、URL を config.js に貼る
  */
 
@@ -20,73 +20,162 @@ function getSpreadsheet_() {
   return SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
 }
 
+// サイトのURL・動画フォルダ（「使い方」シートに表示する）
+var SITE_URL = "https://wwwtoyosakiak-prog.github.io/tamasai-2026-site/";
+
+var HEAD_BG = "#e8eefc";     // 見出しの色
+var VIEW_COLOR = "#2f6fed";  // 見る用シートのタブの色（青）
+var DATA_COLOR = "#9aa0a6";  // 記録用シートのタブの色（灰）
+var HELP_COLOR = "#34a853";  // 使い方シートのタブの色（緑）
+
 function setup() {
   var ss = getSpreadsheet_();
+  var help = setupHelp_(ss);
+  var answers = setupVideoAnswers_(ss);
+  var summary = setupVideoSummary_(ss);
+  var ws = setupWorkshop_(ss);
+  var wsSum = ss.getSheetByName("満足度集計");
 
-  var answers = ss.getSheetByName("回答") || ss.insertSheet("回答");
-  if (answers.getLastRow() === 0) {
-    answers.appendRow(["受信日時", "作品ID", "作品名", "面白かった(人)", "面白くなかった(人)", "端末送信日時", "送信ID"]);
-    answers.setFrozenRows(1);
+  // 何も入っていない「シート1」と、記録の無い「満足度_旧」は消す
+  removeIfEmpty_(ss, "シート1", 0);
+  removeIfEmpty_(ss, "満足度_旧", 1);
+
+  // 並び順：使い方 → 集計（動画）→ 満足度集計（ワークショップ）→ 回答 → 満足度
+  [help, summary, wsSum, answers, ws].forEach(function (sh, i) {
+    ss.setActiveSheet(sh);
+    ss.moveActiveSheet(i + 1);
+  });
+  help.setTabColor(HELP_COLOR);
+  summary.setTabColor(VIEW_COLOR);
+  wsSum.setTabColor(VIEW_COLOR);
+  answers.setTabColor(DATA_COLOR);
+  ws.setTabColor(DATA_COLOR);
+  var old = ss.getSheetByName("満足度_旧");
+  if (old) { old.setTabColor(DATA_COLOR); }
+
+  // 手で編集しようとすると警告を出す（数式や記録をうっかり消さないため）
+  [summary, wsSum, answers, ws].forEach(function (sh) {
+    sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function (p) { p.remove(); });
+    sh.protect().setDescription("自動で記録・集計しています").setWarningOnly(true);
+  });
+
+  ss.setActiveSheet(summary);
+}
+
+function removeIfEmpty_(ss, name, headerRows) {
+  var sh = ss.getSheetByName(name);
+  if (sh && sh.getLastRow() <= headerRows && ss.getSheets().length > 1) { ss.deleteSheet(sh); }
+}
+
+// 記録用シートの見た目（見出し・日時の表示・列幅）
+function styleDataSheet_(sh, widths, grayCols) {
+  var cols = widths.length;
+  sh.setFrozenRows(1);
+  sh.getRange(1, 1, 1, cols).setFontWeight("bold").setBackground(HEAD_BG).setWrap(true);
+  sh.getRange("A2:A").setNumberFormat("yyyy/mm/dd hh:mm:ss");
+  widths.forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  (grayCols || []).forEach(function (c) {
+    if (sh.getMaxRows() < 2) { return; }
+    sh.getRange(2, c, sh.getMaxRows() - 1, 1).setFontColor("#9aa0a6");
+  });
+}
+
+// ---------- 使い方 ----------
+function setupHelp_(ss) {
+  var sh = ss.getSheetByName("使い方") || ss.insertSheet("使い方");
+  sh.clear();
+  var rows = [
+    ["多摩祭2026 動画コンテスト・ワークショップ アンケート 記録"],
+    [""],
+    ["■ 見るシート（青いタブ）"],
+    ["集計　…　動画コンテストの順位。「面白かった」の人数が多い順。1位は黄色"],
+    ["満足度集計　…　ワークショップ アンケートの人数・割合"],
+    [""],
+    ["■ 記録シート（灰色のタブ）"],
+    ["回答　…　動画コンテストの回答が、サイトから自動で1件1行で入ります"],
+    ["満足度　…　ワークショップ アンケートの回答が、サイトから自動で入ります"],
+    ["※ スタッフが「直前の1件を取り消す」を押した回答は、「取消」の印が付き、集計に数えません"],
+    [""],
+    ["■ 注意"],
+    ["・どのシートも手で書き換えないでください（編集しようとすると警告が出ます）"],
+    ["・集計シートの数式を消すと、順位や棒が出なくなります。崩れたときは Apps Script で setup を実行すると元に戻ります（記録は消えません）"],
+    ["・テストで入れた行を消すときは、「回答」「満足度」の2行目以降を行ごと削除してください（1行目の見出しは残す）"],
+    [""],
+    ["■ リンク"],
+    ["サイト：" + SITE_URL],
+    ["動画フォルダ：https://drive.google.com/drive/folders/" + FOLDER_ID],
+    ["（動画フォルダの直下に動画を入れると、サイトに自動で反映されます）"]
+  ];
+  sh.getRange(1, 1, rows.length, 1).setValues(rows);
+  sh.getRange("A1").setFontSize(16).setFontWeight("bold");
+  [3, 7, 12, 17].forEach(function (r) { sh.getRange(r, 1).setFontWeight("bold").setBackground(HEAD_BG); });
+  sh.setColumnWidth(1, 900);
+  sh.getRange(1, 1, rows.length, 1).setWrap(true).setVerticalAlignment("middle");
+  return sh;
+}
+
+// ---------- 動画コンテスト ----------
+function setupVideoAnswers_(ss) {
+  var sh = ss.getSheetByName("回答") || ss.insertSheet("回答");
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(["受信日時", "作品ID", "作品名", "面白かった(人)", "面白くなかった(人)", "端末送信日時", "送信ID"]);
   }
+  styleDataSheet_(sh, [150, 120, 240, 110, 120, 190, 150], [2, 6, 7]);
+  return sh;
+}
 
+function setupVideoSummary_(ss) {
   // 集計シート：「面白かった」の人数が多い順に並べ、順位と棒を付ける
-  var summary = ss.getSheetByName("集計") || ss.insertSheet("集計");
-  summary.clear();
-  summary.clearConditionalFormatRules();
+  var sh = ss.getSheetByName("集計") || ss.insertSheet("集計");
+  sh.clear();
+  sh.clearConditionalFormatRules();
 
-  summary.getRange("A1").setValue("順位");
-  // B〜E列：作品ごとの合計。面白かった(人)が多い順、同数なら面白くなかった(人)が少ない順
-  summary.getRange("B1").setFormula(
-    '=IFERROR(QUERY(回答!A2:F, "select C, sum(D), sum(E), count(C) where C is not null ' +
+  // A 順位 / B〜F 作品ごとの合計（面白かった(人)が多い順、同数なら面白くなかった(人)が少ない順）
+  sh.getRange("A1").setValue("順位");
+  sh.getRange("B1").setFormula(
+    '=IFERROR(QUERY(回答!A2:F, "select C, sum(D), sum(E), sum(D)+sum(E), count(C) where C is not null ' +
     "group by C order by sum(D) desc, sum(E) asc " +
-    "label C '作品名', sum(D) '面白かった(人)', sum(E) '面白くなかった(人)', count(C) '回答数'\", 0), " +
+    "label C '作品名', sum(D) '面白かった(人)', sum(E) '面白くなかった(人)', sum(D)+sum(E) '合計(人)', count(C) '上映回数'\", 0), " +
     '"まだ回答がありません")'
   );
   // 順位：面白かった(人)が多いほど上位。同数なら同じ順位
-  summary.getRange("A2").setFormula('=ARRAYFORMULA(IF(C2:C="","",1+COUNTIF(C2:C,">"&C2:C)))');
-  // 棒：面白かった(人)の数だけ ■ を並べる
-  summary.getRange("F1").setValue("面白かった（棒）");
-  summary.getRange("F2").setFormula('=ARRAYFORMULA(IF(C2:C="","",REPT("■",C2:C)))');
+  sh.getRange("A2").setFormula('=ARRAYFORMULA(IF(C2:C="","",1+COUNTIF(C2:C,">"&C2:C)))');
+  // G 面白かった率、H 棒（面白かった(人)の数だけ ■）
+  sh.getRange("G1").setValue("面白かった率");
+  sh.getRange("G2").setFormula('=ARRAYFORMULA(IF(C2:C="","",IFERROR(C2:C/E2:E,0)))');
+  sh.getRange("H1").setValue("面白かった（棒）");
+  sh.getRange("H2").setFormula('=ARRAYFORMULA(IF(C2:C="","",REPT("■",C2:C)))');
 
-  // 合計(人)：その作品の投票数（面白かった＋面白くなかった）
-  summary.getRange("G1").setValue("合計(人)");
-  summary.getRange("G2").setFormula('=ARRAYFORMULA(IF(C2:C="","",C2:C+D2:D))');
-  // 全体の合計（I〜J列）：総投票数など
-  summary.getRange("I1").setValue("全体の合計");
-  summary.getRange("I2:I5").setValues([["総投票数(人)"], ["面白かった(人)"], ["面白くなかった(人)"], ["作品数"]]);
-  summary.getRange("J2").setFormula('=SUM(C2:C)+SUM(D2:D)');
-  summary.getRange("J3").setFormula('=SUM(C2:C)');
-  summary.getRange("J4").setFormula('=SUM(D2:D)');
-  summary.getRange("J5").setFormula('=COUNTA(B2:B)-COUNTIF(B2:B,"まだ回答がありません")');
+  // 全体の合計（J〜K列）
+  sh.getRange("J1").setValue("全体の合計");
+  sh.getRange("J2:J6").setValues([["総投票数(人)"], ["面白かった(人)"], ["面白くなかった(人)"], ["上映回数（回答の件数）"], ["投票のあった作品数"]]);
+  sh.getRange("K2").setFormula('=SUM(E2:E)');
+  sh.getRange("K3").setFormula('=SUM(C2:C)');
+  sh.getRange("K4").setFormula('=SUM(D2:D)');
+  sh.getRange("K5").setFormula('=SUM(F2:F)');
+  sh.getRange("K6").setFormula('=COUNT(C2:C)');
 
-  summary.getRange("A1:G1").setFontWeight("bold").setBackground("#e8eefc");
-  summary.getRange("I1:J1").setFontWeight("bold").setBackground("#e8eefc");
-  summary.getRange("I2:I5").setFontWeight("bold");
-  summary.getRange("J2:J5").setFontWeight("bold").setFontSize(14).setHorizontalAlignment("right");
-  summary.getRange("D2:D").setFontWeight("bold");
-  summary.getRange("G2:G").setFontWeight("bold").setHorizontalAlignment("right");
-  summary.setFrozenRows(1);
-  summary.getRange("A2:A").setHorizontalAlignment("center");
-  summary.getRange("C2:C").setFontWeight("bold").setFontSize(14);
-  summary.getRange("F2:F").setFontColor("#2f6fed");
-  summary.setColumnWidth(1, 60);
-  summary.setColumnWidth(2, 260);
-  summary.setColumnWidths(3, 3, 120);
-  summary.setColumnWidth(6, 360);
-  summary.setColumnWidth(7, 90);
-  summary.setColumnWidth(8, 30);
-  summary.setColumnWidths(9, 2, 140);
+  sh.getRange("A1:H1").setFontWeight("bold").setBackground(HEAD_BG).setWrap(true);
+  sh.getRange("J1:K1").setFontWeight("bold").setBackground(HEAD_BG);
+  sh.getRange("J2:J6").setFontWeight("bold");
+  sh.getRange("K2:K6").setFontWeight("bold").setFontSize(14).setHorizontalAlignment("right");
+  sh.setFrozenRows(1);
+  sh.getRange("A2:A").setHorizontalAlignment("center").setFontWeight("bold");
+  sh.getRange("C2:C").setFontWeight("bold").setFontSize(14);
+  sh.getRange("D2:E").setFontWeight("bold");
+  sh.getRange("G2:G").setNumberFormat("0%");
+  sh.getRange("H2:H").setFontColor("#2f6fed");
+  [60, 240, 110, 120, 80, 80, 100, 320, 24, 190, 80].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
   // 1位の行を目立たせる
-  summary.setConditionalFormatRules([
+  sh.setConditionalFormatRules([
     SpreadsheetApp.newConditionalFormatRule()
       .whenFormulaSatisfied("=$A2=1")
       .setBackground("#fff2cc")
       .setBold(true)
-      .setRanges([summary.getRange("A2:G200")])
+      .setRanges([sh.getRange("A2:H300")])
       .build()
   ]);
-
-  setupWorkshop_(ss);
+  return sh;
 }
 
 // ワークショップの満足度アンケート用のシート
@@ -126,66 +215,101 @@ function setupWorkshop_(ss) {
   sheet = ss.getSheetByName("満足度") || ss.insertSheet("満足度");
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(WS_HEADER);
-    sheet.setFrozenRows(1);
-    sheet.setColumnWidth(3, 420);
   }
+  styleDataSheet_(sheet, [150, 130, 420, 170, 190, 150, 60], [5, 6]);
+  sheet.getRange("C2:C").setWrap(true);
+  sheet.getRange("G2:G").setFontColor("#d62828").setFontWeight("bold");
 
+  // 満足度集計：質問ごとに、選択肢の人数・割合・棒と「有効回答／未回答／無効回答」
   var sum = ss.getSheetByName("満足度集計") || ss.insertSheet("満足度集計");
   sum.clear();
+  sum.showColumns(1, sum.getMaxColumns());
   var G = '満足度!$G$2:$G';                 // 取消の列：「取消」が付いた回答は数えない
   var A = '満足度!$A$2:$A';                 // 受信日時（回答のある行）
-  var rows = [];                             // [A, B, C(式または値), D(式または値)]
-  var bold = [], titleRows = [], noteRows = [];
-  var add = function (r) { rows.push(r); return rows.length; };
+  var cells = [];                            // [行, 列, 値または式]
+  var titleRows = [], lineRows = [], noteRows = [], pctRows = [];
+  var row = 1;
+  var put = function (r, c, v) { cells.push([r, c, v]); };
 
+  // F列（非表示）：割合のもとになる有効回答の件数
   var addGroup = function (title, col, items, multi) {
     var C = '満足度!$' + col + '$2:$' + col;
     var valid = 'COUNTIFS(' + C + ',"<>",' + C + ',"<>' + WS_INVALID + '",' + G + ',"<>取消")';
     var blank = 'COUNTIFS(' + A + ',"<>",' + C + ',"",' + G + ',"<>取消")';
     var bad = 'COUNTIFS(' + C + ',"' + WS_INVALID + '",' + G + ',"<>取消")';
-    titleRows.push(add([title, "選択肢", "人数", "割合"]));
-    var first = rows.length + 1, last = first + items.length - 1;
-    var validRow = last + 1;
+    var head = row;
+    put(row, 1, title); put(row, 2, "選択肢"); put(row, 3, "人数"); put(row, 4, "割合"); put(row, 5, "グラフ");
+    put(row, 6, "=" + valid);
+    titleRows.push(row); row++;
     items.forEach(function (item) {
-      var r = rows.length + 1;
       var crit = multi ? '"*"&"' + item + '"&"*"' : '"' + item + '"';
-      add(["", item, '=COUNTIFS(' + C + ',' + crit + ',' + G + ',"<>取消")',
-           '=IFERROR(C' + r + '/$C$' + validRow + ',0)']);
+      put(row, 2, item);
+      put(row, 3, '=COUNTIFS(' + C + ',' + crit + ',' + G + ',"<>取消")');
+      put(row, 4, '=IFERROR(C' + row + '/$F$' + head + ',0)');
+      put(row, 5, '=REPT("■",ROUND(D' + row + '*20))');
+      pctRows.push(row); row++;
     });
-    // 有効回答の件数（割合のもと）。1行にまとめて「有効回答：○件　未回答：○件　無効回答：○件」と表示する
-    add(["", "有効回答：", '=' + valid, ""]);
-    var lineRow = add(["", '="有効回答："&' + valid + '&"件　未回答："&' + blank + '&"件　無効回答："&' + bad + '&"件"', "", ""]);
-    noteRows.push(lineRow);
-    if (multi) { add(["", "※いくつでも えらべるため、割合の合計は100%をこえることがあります", "", ""]); }
-    add(["", "", "", ""]);
+    put(row, 2, '="有効回答："&' + valid + '&"件　未回答："&' + blank + '&"件　無効回答："&' + bad + '&"件"');
+    lineRows.push(row); row++;
+    if (multi) {
+      put(row, 2, "※いくつでも えらべるため、割合の合計は100%をこえることがあります");
+      noteRows.push(row); row++;
+    }
+    row++;
   };
   addGroup("1 ペパポンをつくって、たのしかった", "B", WS_Q1, false);
   addGroup("2 きょう、わかったことはどれかな（いくつでも）", "C", WS_Q2, true);
   addGroup("3 おうちのひとと、リサイクルをしてみたい", "D", WS_Q3, false);
-  var total = add(["回答の合計（人）", "", '=COUNTIFS(' + A + ',"<>",' + G + ',"<>取消")', ""]);
+  var total = row;
+  put(total, 1, "回答の合計（人）");
+  put(total, 3, '=COUNTIFS(' + A + ',"<>",' + G + ',"<>取消")');
+  put(total + 1, 1, "取り消した回答（件）");
+  put(total + 1, 3, '=COUNTIF(' + G + ',"取消")');
 
-  rows.forEach(function (r, i) {
-    var row = i + 1;
-    sum.getRange(row, 1).setValue(r[0]);
-    [1, 2, 3].forEach(function (k) {
-      var v = r[k];
-      if (v === "") { return; }
-      var cell = sum.getRange(row, k + 1);
-      if (typeof v === "string" && v.charAt(0) === "=") { cell.setFormula(v); } else { cell.setValue(v); }
-    });
-    if (r[3] !== "" && r[3] !== undefined && String(r[3]).indexOf("IFERROR") >= 0) {
-      sum.getRange(row, 4).setNumberFormat("0%");
-    }
+  cells.forEach(function (x) {
+    var cell = sum.getRange(x[0], x[1]);
+    if (typeof x[2] === "string" && x[2].charAt(0) === "=") { cell.setFormula(x[2]); } else { cell.setValue(x[2]); }
   });
   titleRows.forEach(function (r) {
-    sum.getRange(r, 1, 1, 4).setFontWeight("bold").setBackground("#e8eefc");
+    sum.getRange(r, 1, 1, 5).setFontWeight("bold").setBackground(HEAD_BG);
   });
-  noteRows.forEach(function (r) { sum.getRange(r, 2).setFontWeight("bold"); });
-  sum.getRange(total, 1, 1, 3).setFontWeight("bold");
-  sum.getRange("C1:C" + total).setFontWeight("bold").setFontSize(14);
-  sum.setColumnWidth(1, 330);
-  sum.setColumnWidth(2, 420);
-  sum.setColumnWidths(3, 2, 90);
+  pctRows.forEach(function (r) {
+    sum.getRange(r, 3).setFontWeight("bold").setFontSize(14);
+    sum.getRange(r, 4).setNumberFormat("0%").setFontWeight("bold");
+    sum.getRange(r, 5).setFontColor("#2f6fed");
+  });
+  lineRows.forEach(function (r) { sum.getRange(r, 2).setFontWeight("bold"); });
+  noteRows.forEach(function (r) { sum.getRange(r, 2).setFontColor("#5f6368").setFontSize(9); });
+  sum.getRange(total, 1, 2, 3).setFontWeight("bold");
+  sum.getRange(total, 3).setFontSize(14);
+  [330, 440, 70, 70, 220].forEach(function (w, i) { sum.setColumnWidth(i + 1, w); });
+  sum.getRange(1, 3, total + 1, 2).setHorizontalAlignment("right");
+  sum.hideColumns(6);
+  return sheet;
+}
+
+// 本番前に、テストで入れた行を消す（送信IDを指定。1回だけ実行する）
+function removeTestRows() {
+  var ss = getSpreadsheet_();
+  var ids = {
+    "回答": ["6bdd4da8-676e-4fd8-baad-0cd2898032e0", "a269968b-3f08-426d-99bc-8645d8f90f3c", "500792ad-ccd9-4c57-9ddf-a41da017a43b"],
+    "満足度": ["verify-1792671500407", "dualA1792671689253", "dualB1792671689253"]
+  };
+  var idCol = { "回答": 7, "満足度": 6 };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    Object.keys(ids).forEach(function (name) {
+      var sh = ss.getSheetByName(name);
+      if (!sh || sh.getLastRow() < 2) { return; }
+      var vals = sh.getRange(2, idCol[name], sh.getLastRow() - 1, 1).getValues();
+      for (var i = vals.length - 1; i >= 0; i--) {          // 下の行から消す
+        if (ids[name].indexOf(String(vals[i][0])) >= 0) { sh.deleteRow(i + 2); }
+      }
+    });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // 動画フォルダの中身を一覧で返す（サイトのスタート時に読み込まれる）
