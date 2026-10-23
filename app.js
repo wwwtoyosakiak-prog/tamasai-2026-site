@@ -14,6 +14,7 @@
   };
 
   var works = [];     // works.json の全作品
+  var localVideos = {}; // サイトに置いた変換済みの動画（videos.json：ドライブのID → ファイルの場所）
   var queue = [];     // シャッフルした再生順
   var pos = 0;        // 今の再生位置（0始まり）
   var sending = false;
@@ -71,6 +72,22 @@
       box.appendChild(ph);
       return;
     }
+    var local = localVideos[work.driveId];
+    if (local) {
+      // サイトに置いた動画：どの端末・どのGoogleアカウントでも同じように再生できる
+      var v = document.createElement("video");
+      v.src = local;
+      v.controls = true;
+      v.playsInline = true;
+      v.setAttribute("playsinline", "");
+      v.preload = "auto";
+      v.title = work.title;
+      box.appendChild(v);
+      var pr = v.play();
+      if (pr && pr.catch) { pr.catch(function () { /* 自動再生できない端末は、再生ボタンを押してもらう */ }); }
+      return;
+    }
+    // まだサイトに置いていない動画は、ドライブの再生画面で表示する
     var f = document.createElement("iframe");
     f.src = "https://drive.google.com/file/d/" + encodeURIComponent(work.driveId) + "/preview";
     f.title = work.title;
@@ -305,8 +322,16 @@
       .then(cleanList);
   }
 
+  function fetchLocalVideos() {
+    return fetch("videos.json?t=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : {}; })
+      .then(function (m) { localVideos = (m && typeof m === "object") ? m : {}; })
+      .catch(function () { /* 無ければドライブの再生画面を使う */ });
+  }
+
   function loadWorks() {
-    return fetchFolderList()
+    var lv = fetchLocalVideos();
+    var list = fetchFolderList()
       .catch(function () { return fetchWorksJson(); })
       .then(function (list) {
         works = list;
@@ -318,6 +343,7 @@
         works = [];
         notice("動画の一覧を読み込めませんでした。");
       });
+    return Promise.all([lv, list]);
   }
 
   init();
