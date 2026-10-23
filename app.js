@@ -82,6 +82,12 @@
       v.setAttribute("playsinline", "");
       v.preload = "auto";
       v.title = work.title;
+      // 横長の動画なら、枠も横長にする（動画の実際の縦横から判断）
+      v.addEventListener("loadedmetadata", function () {
+        if (v.videoWidth && v.videoHeight) {
+          box.className = "player " + (v.videoWidth > v.videoHeight ? "landscape" : "portrait");
+        }
+      });
       box.appendChild(v);
       var pr = v.play();
       if (pr && pr.catch) { pr.catch(function () { /* 自動再生できない端末は、再生ボタンを押してもらう */ }); }
