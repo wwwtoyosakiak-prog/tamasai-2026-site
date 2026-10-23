@@ -288,7 +288,7 @@ function setupWorkshop_(ss) {
   return sheet;
 }
 
-// 本番前に、テストで入れた行を消す（送信IDを指定。1回だけ実行する）
+// テストで入れた行を消す（指定の送信ID と「check-」で始まる送信ID。何回実行してもよい）
 function removeTestRows() {
   var ss = getSpreadsheet_();
   var ids = {
@@ -304,7 +304,9 @@ function removeTestRows() {
       if (!sh || sh.getLastRow() < 2) { return; }
       var vals = sh.getRange(2, idCol[name], sh.getLastRow() - 1, 1).getValues();
       for (var i = vals.length - 1; i >= 0; i--) {          // 下の行から消す
-        if (ids[name].indexOf(String(vals[i][0])) >= 0) { sh.deleteRow(i + 2); }
+        var v = String(vals[i][0]);
+        // 指定の送信ID、または「check-」で始まる送信ID（動作確認用）を消す
+        if (ids[name].indexOf(v) >= 0 || v.indexOf("check-") === 0) { sh.deleteRow(i + 2); }
       }
     });
   } finally {
