@@ -4,6 +4,7 @@
   var CFG = window.APP_CONFIG || {};
   var MAX_PEOPLE = CFG.MAX_PEOPLE || 10;
   var ENDPOINT = CFG.SURVEY_ENDPOINT || "";
+  var EXCLUDE = Array.isArray(CFG.EXCLUDE_IDS) ? CFG.EXCLUDE_IDS : [];
 
   var $ = function (id) { return document.getElementById(id); };
   var screens = {
@@ -299,7 +300,7 @@
   // 2) 読めなければ works.json を使う
   function cleanList(list) {
     return (Array.isArray(list) ? list : []).filter(function (w) {
-      return w && w.id && w.title && w.driveId;
+      return w && w.id && w.title && w.driveId && EXCLUDE.indexOf(w.driveId) < 0;
     });
   }
 
