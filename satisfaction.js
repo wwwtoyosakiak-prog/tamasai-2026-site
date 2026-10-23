@@ -39,7 +39,8 @@
     toastTimer = setTimeout(function () { el.hidden = true; }, 4000);
   }
 
-  function hasAnswer() { return !!(answers.q1 || answers.q2.length || answers.q3); }
+  function comment() { return $("ws-comment").value.trim(); }
+  function hasAnswer() { return !!(answers.q1 || answers.q2.length || answers.q3 || comment()); }
 
   function updateSummary() {
     $("ws-summary").textContent = !hasAnswer()
@@ -48,11 +49,12 @@
           answers.q1 || "①まだ",
           answers.q2.length ? answers.q2.length + "こ" : "②まだ",
           answers.q3 || "③まだ"
-        ].join(" ／ ");
+        ].join(" ／ ") + (comment() ? " ／ ひとこと有り" : "");
   }
 
   function resetForm() {
     answers = { q1: "", q2: [], q3: "" };
+    $("ws-comment").value = "";
     var btns = document.querySelectorAll(".choice");
     for (var i = 0; i < btns.length; i++) { btns[i].setAttribute("aria-pressed", "false"); }
     $("ws-error").hidden = true;
@@ -189,6 +191,7 @@
       q1: answers.q1,
       q2: answers.q2,
       q3: answers.q3,
+      comment: comment().slice(0, 500),
       sentAt: new Date().toISOString()
     });
     lastId = id;
@@ -242,6 +245,7 @@
   }
 
   function init() {
+    $("ws-comment").addEventListener("input", function () { $("ws-error").hidden = true; updateSummary(); });
     $("stale-reload").addEventListener("click", function () { location.reload(); });
     var groups = document.querySelectorAll(".choices");
     for (var i = 0; i < groups.length; i++) { groups[i].addEventListener("click", onChoice); }

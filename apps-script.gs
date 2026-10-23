@@ -89,11 +89,11 @@ function setupHelp_(ss) {
     [""],
     ["■ 見るシート（青いタブ）"],
     ["集計　…　動画コンテストの順位。「面白かった」の人数が多い順。1位は黄色"],
-    ["満足度集計　…　ワークショップ アンケートの人数・割合"],
+    ["満足度集計　…　ワークショップ アンケートの人数・割合と、ひとことの一覧（右側）"],
     [""],
     ["■ 記録シート（灰色のタブ）"],
     ["回答　…　動画コンテストの回答が、サイトから自動で1件1行で入ります"],
-    ["満足度　…　ワークショップ アンケートの回答が、サイトから自動で入ります"],
+    ["満足度　…　ワークショップ アンケートの回答が、サイトから自動で入ります（ひとことは H列）"],
     ["※ スタッフが「直前の1件を取り消す」を押した回答は、「取消」の印が付き、集計に数えません"],
     [""],
     ["■ 注意"],
@@ -193,7 +193,7 @@ var OLD_Q1 = ["たのしかった", "ふつう", "つまらない"];
 var OLD_Q2 = ["かんたん", "ちょうどいい", "むずかしい"];
 var OLD_Q3 = ["やりたい", "やりたくない"];
 var OLD_HEADER = ["受信日時", "たのしかった？", "キットづくり", "また やりたい？", "ひとこと", "端末送信日時", "送信ID", "取消"];
-var WS_HEADER = ["受信日時", "1 たのしかった？", "2 わかったこと（いくつでも）", "3 リサイクルしてみたい？", "端末送信日時", "送信ID", "取消"];
+var WS_HEADER = ["受信日時", "1 たのしかった？", "2 わかったこと（いくつでも）", "3 リサイクルしてみたい？", "端末送信日時", "送信ID", "取消", "4 ひとこと"];
 
 function legacySheet_(ss) {
   var sh = ss.getSheetByName("満足度_旧");
@@ -216,7 +216,9 @@ function setupWorkshop_(ss) {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(WS_HEADER);
   }
-  styleDataSheet_(sheet, [150, 130, 420, 170, 190, 150, 60], [5, 6]);
+  if (sheet.getRange("H1").getValue() !== WS_HEADER[7]) { sheet.getRange("H1").setValue(WS_HEADER[7]); } // ひとこと の列（後から追加）
+  styleDataSheet_(sheet, [150, 130, 420, 170, 190, 150, 60, 360], [5, 6]);
+  sheet.getRange("H2:H").setWrap(true);
   sheet.getRange("C2:C").setWrap(true);
   sheet.getRange("G2:G").setFontColor("#d62828").setFontWeight("bold");
 
@@ -285,6 +287,18 @@ function setupWorkshop_(ss) {
   [330, 440, 70, 70, 220].forEach(function (w, i) { sum.setColumnWidth(i + 1, w); });
   sum.getRange(1, 3, total + 1, 2).setHorizontalAlignment("right");
   sum.hideColumns(6);
+
+  // ひとこと（新しい順。取り消した回答は出さない）
+  sum.getRange("H1").setValue("4 ひとこと（新しい順）").setFontWeight("bold").setBackground(HEAD_BG);
+  sum.getRange("H2").setFormula(
+    '=IFERROR(SORT(FILTER({満足度!A2:A, 満足度!H2:H}, 満足度!H2:H<>"", 満足度!G2:G<>"取消"), 1, FALSE), {"", "まだありません"})'
+  );
+  sum.getRange("H2:H").setNumberFormat("m/d hh:mm");
+  sum.setColumnWidth(7, 24);
+  sum.setColumnWidth(8, 110);
+  sum.setColumnWidth(9, 420);
+  sum.getRange("I2:I").setWrap(true);
+  sum.getRange("H1:I1").merge();
   return sheet;
 }
 
@@ -368,8 +382,9 @@ function doPost(e) {
             var clash = uniq.indexOf(WS_Q2_UNSURE) >= 0 && uniq.length > 1;
             a2 = (!okAll || clash) ? WS_INVALID : uniq.join(WS_SEP);
           }
-          if (a1 === "" && a2 === "" && a3 === "") { return; }
-          workshop.push({ id: wid, q1: a1, q2: a2, q3: a3, sentAt: wsent });
+          var cm = String(r.comment || "").replace(/^[=+\-@]/, "'$&").slice(0, 500); // 数式として扱われないように
+          if (a1 === "" && a2 === "" && a3 === "" && cm === "") { return; }
+          workshop.push({ id: wid, q1: a1, q2: a2, q3: a3, comment: cm, sentAt: wsent });
         } else if (r.v === undefined &&
                    OLD_Q1.indexOf(r.q1) >= 0 && OLD_Q2.indexOf(r.q2) >= 0 && OLD_Q3.indexOf(r.q3) >= 0) {
           // 前の版の画面から届いた回答は「満足度_旧」へ
@@ -448,10 +463,10 @@ function doPost(e) {
         workshop.forEach(function (r) {
           if (r.id && ids[r.id]) { duplicates++; return; }
           if (r.id) { ids[r.id] = wlast + 1 + wrows.length; } // 追加後の行番号
-          wrows.push([now, r.q1, r.q2, r.q3, r.sentAt, r.id, ""]);
+          wrows.push([now, r.q1, r.q2, r.q3, r.sentAt, r.id, "", r.comment]);
         });
         if (wrows.length > 0) {
-          ws.getRange(wlast + 1, 1, wrows.length, 7).setValues(wrows);
+          ws.getRange(wlast + 1, 1, wrows.length, 8).setValues(wrows);
           added += wrows.length;
         }
 

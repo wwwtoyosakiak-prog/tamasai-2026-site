@@ -291,6 +291,8 @@ textarea {
   #ws-form .q:nth-of-type(1) { grid-column: 1; grid-row: 1; }
   #ws-form .q:nth-of-type(2) { grid-column: 2; grid-row: 1 / span 2; }
   #ws-form .q:nth-of-type(3) { grid-column: 1; grid-row: 2; }
+  #ws-form .q:nth-of-type(4) { grid-column: 1 / -1; grid-row: 3; }
+  #ws-form .q-comment textarea { min-height: 56px; }
   #ws-form .multi .choice { flex: 1 1 100%; white-space: normal; }
   #ws-form .q { margin-bottom: 12px; }
   #ws-form .q legend { font-size: 18px; margin-bottom: 8px; }
