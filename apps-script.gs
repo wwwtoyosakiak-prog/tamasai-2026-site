@@ -328,6 +328,22 @@ function removeTestRows() {
   }
 }
 
+// すべての回答を消す（「回答」「満足度」の2行目以降。見出しと集計の数式は残す）
+// 本番前のリセット用。実行すると元に戻せないので注意（スプレッドシートの版の履歴からは戻せる）
+function clearAllAnswers() {
+  var ss = getSpreadsheet_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    ["回答", "満足度"].forEach(function (name) {
+      var sh = ss.getSheetByName(name);
+      if (sh && sh.getLastRow() >= 2) { sh.deleteRows(2, sh.getLastRow() - 1); }
+    });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // 動画フォルダの中身を一覧で返す（サイトのスタート時に読み込まれる）
 function doGet(e) {
   try {
