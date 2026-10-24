@@ -337,7 +337,8 @@ function clearAllAnswers() {
   try {
     ["回答", "満足度"].forEach(function (name) {
       var sh = ss.getSheetByName(name);
-      if (sh && sh.getLastRow() >= 2) { sh.deleteRows(2, sh.getLastRow() - 1); }
+      // 行は消さずに中身だけ消す（行ごと消すと、次の書き込み先の行が無くなることがあるため）
+      if (sh && sh.getLastRow() >= 2) { sh.getRange(2, 1, sh.getLastRow() - 1, sh.getMaxColumns()).clearContent(); }
     });
   } finally {
     lock.releaseLock();
